@@ -8,14 +8,6 @@ import (
 	"time"
 )
 
-type configs struct {
-	inverterPort uint16
-	inverterHost string
-	pollInterval int //ms
-}
-
-const configFile = "solarmon.conf"
-
 func main() {
 	var inv SolarEdgeModbus
 
