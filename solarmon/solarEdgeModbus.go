@@ -1,4 +1,4 @@
-package main
+package solarmon
 
 import (
 	"encoding/binary"
@@ -36,11 +36,11 @@ type regInfo struct {
 	units     string
 }
 
-type regResult struct {
-	value    float64
-	units    string
-	datatype uint16
-	strval   string
+type RegResult struct {
+	Value    float64
+	Units    string
+	Datatype uint16
+	Strval   string
 }
 
 const StaleAge = 1 * time.Second
@@ -133,8 +133,8 @@ func (inverter *SolarEdgeModbus) checkStale(addr uint32) bool {
 	return (true)
 }
 
-func (inverter *SolarEdgeModbus) getReg(name string) regResult {
-	result := regResult{value: 0, units: "", datatype: FLOAT64, strval: ""}
+func (inverter *SolarEdgeModbus) GetReg(name string) RegResult {
+	result := RegResult{Value: 0, Units: "", Datatype: FLOAT64, Strval: ""}
 	value := int32(0)
 	if attribs, ok := regAddr[name]; ok {
 		//Lookup was OK
@@ -151,19 +151,19 @@ func (inverter *SolarEdgeModbus) getReg(name string) regResult {
 		case UINT32:
 			value = int32(binary.BigEndian.Uint32(inverter.buffer[startAddr:]))
 		case STRING:
-			result.strval = string(inverter.buffer[startAddr : startAddr+attribs.strlen-1])
-			result.datatype = STRING
+			result.Strval = string(inverter.buffer[startAddr : startAddr+attribs.strlen-1])
+			result.Datatype = STRING
 		default:
-			return (regResult{0.0, "", 0, ""})
+			return (RegResult{0.0, "", 0, ""})
 
 		}
 
 		//Numeric result needs to be scaled.
-		if (result.datatype != STRING) && (attribs.scaleAddr > 0) {
+		if (result.Datatype != STRING) && (attribs.scaleAddr > 0) {
 			startAddr = 2 * (attribs.scaleAddr - inverter.baseAddr)
 			scaleFact := int(int16(binary.BigEndian.Uint16(inverter.buffer[startAddr:])))
-			result.value = float64(value) * math.Pow10(scaleFact)
-			result.units = attribs.units
+			result.Value = float64(value) * math.Pow10(scaleFact)
+			result.Units = attribs.units
 		}
 	}
 	return (result)
@@ -204,7 +204,7 @@ func (inverter *SolarEdgeModbus) get(addr uint32, length int) (err error) {
 	return (err)
 }
 
-func (inverter *SolarEdgeModbus) allRegDump() {
+func (inverter *SolarEdgeModbus) AllRegDump() {
 	//Make an array of keys to sort
 	keys := make([]string, 0, len(regAddr))
 	for key := range regAddr {
@@ -214,13 +214,13 @@ func (inverter *SolarEdgeModbus) allRegDump() {
 
 	//Iterate over sorted keys
 	for _, key := range keys {
-		result := inverter.getReg(key)
+		result := inverter.GetReg(key)
 
-		switch result.datatype {
+		switch result.Datatype {
 		case INT16, UINT16, UINT32, FLOAT64:
-			fmt.Printf("%s = %.8g %s\n", key, result.value, result.units)
+			fmt.Printf("%s = %.8g %s\n", key, result.Value, result.Units)
 		case STRING:
-			fmt.Printf("%s = %s\n", key, result.strval)
+			fmt.Printf("%s = %s\n", key, result.Strval)
 		default:
 
 		}
