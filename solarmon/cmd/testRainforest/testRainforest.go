@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"github.com/spf13/viper"
 	//"os"
-	"time"
+	"github.com/mikef5410/solarmon"
+	//"time"
 )
 
 func main() {
-	var meter rainforestEagle200Local
+	var meter solarmon.RainforestEagle200Local
 
 	configReader := viper.New()
 	configReader.SetConfigName("solarmon")
@@ -23,15 +24,14 @@ func main() {
 		panic(fmt.Errorf("Fatal error in config file: %s \n", err))
 	}
 
+	fmt.Printf("Connect to: %s\n", configReader.GetString("rainforest.host"))
 
-	fmt.Printf("Connect to: %s\n", configReader.GetString("rainforest.host"), )
+	meter.Host = configReader.GetString("rainforest.host")
+	meter.User = configReader.GetString("rainforest.cloudID")
+	meter.Pass = configReader.GetString("rainforest.installCode")
 
-	meter.host = configReader.GetString("rainforest.host")
-	meter.user = configReader.GetString("rainforest.cloudID"))
-	meter.pass = configReader.GetString("rainforest.installCode"))
+	fmt.Printf("%v\n", meter)
 
-
-	fmt.Printf("%v\n",meter)
-	
-	meter.setup()
+	meter.Setup()
+	meter.GetData()
 }

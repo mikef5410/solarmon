@@ -5,26 +5,32 @@ import (
 	"gopkg.in/resty.v1"
 )
 
-type rainforestEagle200Local struct {
-	host              string
-	user              string
-	pass              string
-	meterHardwareAddr string
+type RainforestEagle200Local struct {
+	Host              string
+	User              string
+	Pass              string
+	MeterHardwareAddr string
 }
 
-func (self *rainforestEagle200Local) setup() {
+type AuthSuccess struct {
+	ID, Message string
+}
+type AuthError struct {
+	ID, Message string
+}
+func (self *RainforestEagle200Local) Setup() {
 	cmd := fmt.Sprintf("<Command><Name>device_list</Name></Command>")
 
-	resp, err:= resty.R().SetBasicAuth(self.user, self.pass).
+	resp, err:= resty.R().SetBasicAuth(self.User, self.Pass).
 		SetBody(cmd).
-		//SetResult(AuthSuccess{}).
-		Post(fmt.Sprintf("https://%s/cgi-bin/post_manager", self.host))
+		SetResult(AuthSuccess{}).
+		Post(fmt.Sprintf("https://%s/cgi-bin/post_manager", self.Host))
 
 	fmt.Printf("%s\n",fmt.Errorf("%s",err))
 	fmt.Printf("%v", resp)
 }
 
-func (self *rainforestEagle200Local) getData() {
+func (self *RainforestEagle200Local) GetData() {
 
 	cmd := fmt.Sprintf(`<Command>
 <Name>device_query</Name>
@@ -34,12 +40,12 @@ func (self *rainforestEagle200Local) getData() {
 <Components>
 <All>Y</All>
 </Components>
-</Command>`, self.meterHardwareAddr)
+</Command>`, self.MeterHardwareAddr)
 
-	resp, err := resty.R().SetBasicAuth(self.user, self.pass).
+	resp, err := resty.R().SetBasicAuth(self.User, self.Pass).
 		SetBody(cmd).
-		//SetResult(AuthSuccess{}).
-		Post(fmt.Sprintf("https://%s/cgi-bin/post_manager", self.host))
+		SetResult(AuthSuccess{}).
+		Post(fmt.Sprintf("https://%s/cgi-bin/post_manager", self.Host))
 
 	fmt.Printf("%s\n",fmt.Errorf("%s",err))
 	fmt.Printf("%v\n",resp)
