@@ -4,7 +4,20 @@ import (
 	"fmt"
 	"gopkg.in/resty.v1"
 	"crypto/tls"
+	"encoding/xml"
 )
+
+type Device struct {
+	HardwareAddress string
+	Manufacturer string
+	ModelId string
+	Protocol string
+	LastContact uint32
+	ConnectionStatus string
+	NetworkAddress uint32
+}
+
+type DeviceList []Device
 
 type RainforestEagle200Local struct {
 	Host              string
@@ -20,6 +33,8 @@ type AuthError struct {
 	ID, Message string
 }
 func (self *RainforestEagle200Local) Setup() {
+	var deviceList DeviceList
+
 	cmd := fmt.Sprintf("<Command><Name>device_list</Name></Command>")
 	resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 
@@ -30,6 +45,12 @@ func (self *RainforestEagle200Local) Setup() {
 
 	fmt.Printf("%s\n",fmt.Errorf("%s",err))
 	fmt.Printf("%v", resp)
+
+	if err:= xml.Unmarshal(resp.Body(),&deviceList); err != nil {
+		fmt.Printf("Client unmarhal failed: " + err.Error())
+	} else {
+		fmt.Printf("%v\n",deviceList)
+	}
 }
 
 func (self *RainforestEagle200Local) GetData() {
