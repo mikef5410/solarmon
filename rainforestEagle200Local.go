@@ -8,16 +8,20 @@ import (
 )
 
 type Device struct {
+        XMLName xml.Name `xml:"Device"`
 	HardwareAddress string
 	Manufacturer string
 	ModelId string
 	Protocol string
-	LastContact uint32
+	LastContact string
 	ConnectionStatus string
-	NetworkAddress uint32
+	NetworkAddress string
 }
 
-type DeviceList []Device
+type DeviceList struct {
+     XMLName xml.Name `xml:"DeviceList"`
+     Devices []Device `xml:"Device"`
+     }       
 
 type RainforestEagle200Local struct {
 	Host              string
@@ -33,8 +37,14 @@ type AuthError struct {
 	ID, Message string
 }
 func (self *RainforestEagle200Local) Setup() {
-	var deviceList DeviceList
-
+/*	deviceList := DeviceList {
+                   Devices: []Device {
+                            Device {  },
+                   },
+        }
+*/
+        var deviceList DeviceList
+        
 	cmd := fmt.Sprintf("<Command><Name>device_list</Name></Command>")
 	resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 
@@ -44,13 +54,14 @@ func (self *RainforestEagle200Local) Setup() {
 		Post(fmt.Sprintf("https://%s/cgi-bin/post_manager", self.Host))
 
 	fmt.Printf("%s\n",fmt.Errorf("%s",err))
-	fmt.Printf("%v", resp)
+	fmt.Printf("%s", resp.Body())
 
 	if err:= xml.Unmarshal(resp.Body(),&deviceList); err != nil {
 		fmt.Printf("Client unmarhal failed: " + err.Error())
 	} else {
-		fmt.Printf("%v\n",deviceList)
-	}
+		fmt.Printf("%q\n",deviceList)
+                fmt.Printf("%s\n",deviceList.Devices[0].HardwareAddress)
+               	}
 }
 
 func (self *RainforestEagle200Local) GetData() {
