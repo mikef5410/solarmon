@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/viper"
 	//"os"
 	"github.com/mikef5410/solarmon"
-	//"time"
+	"time"
 )
 
 func main() {
@@ -33,5 +33,17 @@ func main() {
 	fmt.Printf("%v\n", meter)
 
 	meter.Setup()
-	meter.GetData()
+	j:=0
+	pollms := time.Duration(configReader.GetInt("inverter.pollInterval")) * time.Millisecond
+	
+	for j<10 {
+		resp := meter.GetData()
+		fmt.Printf("Data age: %.6g s\n", time.Since(resp.LastContact).Seconds())
+		fmt.Printf("Current Demand: %.8g W\n", resp.InstantaneousDemand*1000.0)
+		fmt.Printf("KWh From Grid: %.8g kWh\n", resp.KWhFromGrid)
+		fmt.Printf("KWh To Grid: %.8g kWh\n", resp.KWhToGrid)
+
+		time.Sleep(pollms)
+		j++
+	}
 }
