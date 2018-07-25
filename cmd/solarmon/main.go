@@ -25,6 +25,9 @@ func main() {
 	var meter solarmon.RainforestEagle200Local
 	var inv solarmon.SolarEdgeModbus
 
+	meter.Host = configReader.GetString("rainforest.host")                  
+        meter.User = configReader.GetString("rainforest.cloudID")               
+        meter.Pass = configReader.GetString("rainforest.installCode")    
 	meter.Setup()
 
 	gridResult := meter.GetData()
