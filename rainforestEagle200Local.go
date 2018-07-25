@@ -5,6 +5,9 @@ import (
 	"encoding/xml"
 	"fmt"
 	"gopkg.in/resty.v1"
+	"regexp"
+	"strconv"
+	"time"
 )
 
 type RainforestEagle200Local struct {
@@ -30,6 +33,20 @@ type DeviceList struct {
 	Devices []Device `xml:"Device"`
 }
 
+type DeviceDetailsDevice struct {
+	XMLName    xml.Name      `xml:"Device"`
+	Details    DeviceDetails `xml:"DeviceDetails"`
+	Components []Component   `xml:"Components>Component"`
+}
+
+type Component struct {
+	XMLName    xml.Name `xml:"Component"`
+	HardwareId string
+	FixedId    string
+	Name       string
+	Variables  []Variable `xml:"Variables>Variable"`
+}
+
 type DeviceDetails struct {
 	XMLName          xml.Name `xml:"DeviceDetails"`
 	Name             string
@@ -41,7 +58,6 @@ type DeviceDetails struct {
 	ModelId          string
 	LastContact      string
 	ConnectionStatus string
-	Variables        []Variable
 }
 
 type Variable struct {
@@ -59,6 +75,13 @@ type AuthError struct {
 	ID, Message string
 }
 
+type DataResponse struct {
+	LastContact         time.Time
+	InstantaneousDemand float64
+	KWhFromGrid         float64
+	KWhToGrid           float64
+}
+
 func (self *RainforestEagle200Local) Setup() {
 	var deviceList DeviceList
 
@@ -70,23 +93,31 @@ func (self *RainforestEagle200Local) Setup() {
 		SetResult(AuthSuccess{}).
 		Post(fmt.Sprintf("https://%s/cgi-bin/post_manager", self.Host))
 
-	fmt.Printf("%s\n", fmt.Errorf("%s", err))
-	fmt.Printf("%s", resp.Body())
+	if err != nil {
+		fmt.Printf("%s\n", fmt.Errorf("%s", err))
+	}
+	//fmt.Printf("%s", resp.Body())
 
 	if err := xml.Unmarshal(resp.Body(), &deviceList); err != nil {
 		fmt.Printf("Client unmarshal failed: " + err.Error())
 	} else {
-		fmt.Printf("%v\n", deviceList)
-		fmt.Printf("%s\n", deviceList.Devices[0].HardwareAddress)
+		//fmt.Printf("%v\n", deviceList)
+		//fmt.Printf("%s\n", deviceList.Devices[0].HardwareAddress)
+	}
+
+	for ix, _ := range deviceList.Devices {
+		if deviceList.Devices[ix].ModelId == "electric_meter" {
+			self.MeterHardwareAddr = deviceList.Devices[ix].HardwareAddress
+		}
 	}
 }
 
-func (self *RainforestEagle200Local) GetData() {
-	var devDetails DeviceDetails
+func (self *RainforestEagle200Local) GetData() DataResponse {
+	var devDetails DeviceDetailsDevice
 
 	resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	hardwareAddr := self.MeterHardwareAddr
 
-	hardwareAddr := "0x0013500100dad717"
 	cmd := fmt.Sprintf(`<Command>
 <Name>device_query</Name>
 <DeviceDetails>
@@ -102,13 +133,37 @@ func (self *RainforestEagle200Local) GetData() {
 		SetResult(AuthSuccess{}).
 		Post(fmt.Sprintf("https://%s/cgi-bin/post_manager", self.Host))
 
-	fmt.Printf("%s\n", fmt.Errorf("%s", err))
-	fmt.Printf("%v\n", resp)
-
-	if err := xml.Unmarshal(resp.Body(), &devDetails); err != nil {
-		fmt.Printf("Client unmarshal failed: " + err.Error())
-	} else {
-		fmt.Printf("%v\n", devDetails)
+	if (err != nil) {
+		fmt.Printf("%s\n", fmt.Errorf("%s", err))
 	}
+
+	re := regexp.MustCompile("&")
+	fixedResp := re.ReplaceAllString(string(resp.Body()), " and ")
+	//fmt.Printf("%s\n", fixedResp)
+
+	if err := xml.Unmarshal([]byte(fixedResp), &devDetails); err != nil {
+		fmt.Printf("Client unmarshal failed: " + err.Error())
+	}
+
+	LastContactStr := devDetails.Details.LastContact
+	//fmt.Printf("Last Contact: %s\n", LastContactStr)
+
+	indexOfName := make(map[string]int)
+	for ix, _ := range devDetails.Components[0].Variables {
+		name := devDetails.Components[0].Variables[ix].Name
+		indexOfName[name] = ix
+	}
+	InstantaneousDemandStr := devDetails.Components[0].Variables[indexOfName["zigbee:InstantaneousDemand"]].Value
+	KWhFromGridStr := devDetails.Components[0].Variables[indexOfName["zigbee:CurrentSummationDelivered"]].Value
+	KWhToGridStr := devDetails.Components[0].Variables[indexOfName["zigbee:CurrentSummationReceived"]].Value
+
+	var response DataResponse
+	LastContactUnix,_ := strconv.ParseInt(LastContactStr, 0, 64)
+	response.LastContact = time.Unix(LastContactUnix,0)
+	response.InstantaneousDemand,_ = strconv.ParseFloat(InstantaneousDemandStr, 64)
+	response.KWhFromGrid,_ = strconv.ParseFloat(KWhFromGridStr, 64)
+	response.KWhToGrid,_ = strconv.ParseFloat(KWhToGridStr, 64)
+
+	return (response)
 
 }
