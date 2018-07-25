@@ -30,10 +30,14 @@ func main() {
         meter.Pass = configReader.GetString("rainforest.installCode")    
 	meter.Setup()
 
+        inv.Host = configReader.GetString("inverter.host")
+        inv.Port = uint16(configReader.GetInt("inverter.port"))
+
+
 	gridResult := meter.GetData()
 	inverterPwr := inv.GetReg("I_AC_Power")
 	//inverterVoltage := inv.GetReg("I_AC_VoltageAB")
 	//inverterCurrent := inv.GetReg("I_AC_Current")
 
-	fmt.Printf("Grid Demand: %.6g W, Solar Output: %.6g W, House is using: %.6gW\n", gridResult.InstantaneousDemand*1000, inverterPwr.Value, inverterPwr.Value-(gridResult.InstantaneousDemand*1000.0))
+	fmt.Printf("Grid Demand: %.6g W, Solar Output: %.6g W, House is using: %.6gW\n", gridResult.InstantaneousDemand*1000, inverterPwr.Value, inverterPwr.Value+(gridResult.InstantaneousDemand*1000.0))
 }

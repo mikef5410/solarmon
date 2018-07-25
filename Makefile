@@ -12,7 +12,7 @@ testInverter: cmd/testInverter/testInverter.go solarEdgeModbus.go rainforestEagl
 	go get
 	go build ${PROJDIR}/cmd/testInverter
 
-testInverter: cmd/solarmon/main.go solarEdgeModbus.go rainforestEagle200Local.go
+solarmon: cmd/solarmon/main.go solarEdgeModbus.go rainforestEagle200Local.go
 	go get
 	go build ${PROJDIR}/cmd/solarmon
 
