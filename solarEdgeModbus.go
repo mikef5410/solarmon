@@ -159,11 +159,16 @@ func (inverter *SolarEdgeModbus) GetReg(name string) RegResult {
 		}
 
 		//Numeric result needs to be scaled.
-		if (result.Datatype != STRING) && (attribs.scaleAddr > 0) {
-			startAddr = 2 * (attribs.scaleAddr - inverter.baseAddr)
-			scaleFact := int(int16(binary.BigEndian.Uint16(inverter.buffer[startAddr:])))
-			result.Value = float64(value) * math.Pow10(scaleFact)
-			result.Units = attribs.units
+		if result.Datatype != STRING {
+			if attribs.scaleAddr > 0 {
+				startAddr = 2 * (attribs.scaleAddr - inverter.baseAddr)
+				scaleFact := int(int16(binary.BigEndian.Uint16(inverter.buffer[startAddr:])))
+				result.Value = float64(value) * math.Pow10(scaleFact)
+				result.Units = attribs.units
+			} else { //Flag value
+				result.Value = float64(value)
+				result.Units = ""
+			}
 		}
 	}
 	return (result)
