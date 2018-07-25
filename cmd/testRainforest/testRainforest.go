@@ -34,7 +34,7 @@ func main() {
 
 	meter.Setup()
 	j:=0
-	pollms := time.Duration(configReader.GetInt("inverter.pollInterval")) * time.Millisecond
+	pollms := time.Duration(configReader.GetInt("rainforest.pollInterval")) * time.Millisecond
 	
 	for j<10 {
 		resp := meter.GetData()
