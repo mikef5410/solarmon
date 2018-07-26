@@ -133,7 +133,7 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 		SetResult(AuthSuccess{}).
 		Post(fmt.Sprintf("https://%s/cgi-bin/post_manager", self.Host))
 
-	if (err != nil) {
+	if err != nil {
 		fmt.Printf("%s\n", fmt.Errorf("%s", err))
 	}
 
@@ -158,12 +158,16 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 	KWhToGridStr := devDetails.Components[0].Variables[indexOfName["zigbee:CurrentSummationReceived"]].Value
 
 	var response DataResponse
-	LastContactUnix,_ := strconv.ParseInt(LastContactStr, 0, 64)
-	response.LastContact = time.Unix(LastContactUnix,0)
-	response.InstantaneousDemand,_ = strconv.ParseFloat(InstantaneousDemandStr, 64)
-	response.KWhFromGrid,_ = strconv.ParseFloat(KWhFromGridStr, 64)
-	response.KWhToGrid,_ = strconv.ParseFloat(KWhToGridStr, 64)
+	LastContactUnix, _ := strconv.ParseInt(LastContactStr, 0, 64)
+	response.LastContact = time.Unix(LastContactUnix, 0)
+	response.InstantaneousDemand, _ = strconv.ParseFloat(InstantaneousDemandStr, 64)
+	response.KWhFromGrid, _ = strconv.ParseFloat(KWhFromGridStr, 64)
+	response.KWhToGrid, _ = strconv.ParseFloat(KWhToGridStr, 64)
 
 	return (response)
 
+}
+
+func (self *RainforestEagle200Local) PollData(gridChannel chan DataResponse) {
+	gridChannel <- self.GetData()
 }

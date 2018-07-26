@@ -98,6 +98,23 @@ var regAddr = map[string]*regInfo{
 	"I_Event_4_Vendor": {40120, UINT32, 0, 0, ""},
 }
 
+type PerfData struct {
+	AC_Power   float64
+	AC_Current float64
+	AC_Voltage float64
+	AC_VA      float64
+	AC_VAR     float64
+	AC_PF      float64
+	AC_Freq    float64
+	AC_Energy  float64
+	DC_Voltage float64
+	DC_Current float64
+	DC_Power   float64
+	SinkTemp   float64
+	Status     float64
+	Event1     float64
+}
+
 func (inverter *SolarEdgeModbus) checkStale(addr uint32) bool {
 	retry := 2
 	var err error
@@ -230,4 +247,25 @@ func (inverter *SolarEdgeModbus) AllRegDump() {
 
 		}
 	}
+}
+
+func (inverter *SolarEdgeModbus) PollData(inverterChannel chan PerfData) {
+	var data PerfData
+
+	data.AC_Power = inverter.GetReg("I_AC_Power").Value
+	data.AC_Current = inverter.GetReg("I_AC_Current").Value
+	data.AC_Voltage = inverter.GetReg("I_AC_VoltageAB").Value
+	data.AC_VA = inverter.GetReg("I_AC_VA").Value
+	data.AC_VAR = inverter.GetReg("I_AC_VAR").Value
+	data.AC_PF = inverter.GetReg("I_AC_PF").Value
+	data.AC_Freq = inverter.GetReg("I_AC_Frequency").Value
+	data.AC_Energy = inverter.GetReg("I_AC_Energy").Value
+	data.DC_Voltage = inverter.GetReg("I_DC_Voltage").Value
+	data.DC_Current = inverter.GetReg("I_DC_Current").Value
+	data.DC_Power = inverter.GetReg("I_DC_Power").Value
+	data.SinkTemp = inverter.GetReg("I_Temp_Sink").Value
+	data.Status = inverter.GetReg("I_Status_Vendor").Value
+	data.Event1 = inverter.GetReg("I_Event_1_Vendor").Value
+
+	inverterChannel <- data
 }
