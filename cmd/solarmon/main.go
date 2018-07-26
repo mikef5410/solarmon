@@ -71,7 +71,7 @@ func main() {
 		dataOut.InverterData = inverterData
 		dataOut.GridData = gridData
 		dataOut.InverterEfficiency = 100 * inverterData.AC_Power / inverterData.DC_Power
-		dataOut.HousePowerUsage = inverterData.AC_Power + (gridData.InstantaneousDemand * 1000.0)
+		dataOut.HousePowerUsage = inverterData.AC_Power + gridData.InstantaneousDemand
 		dataOut.TimeStamp = time.Now().Unix()
 
 		FileWriterLiveDataChan <- dataOut
