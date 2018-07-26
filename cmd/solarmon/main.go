@@ -50,13 +50,13 @@ func main() {
 	inv.Host = configReader.GetString("inverter.host")
 	inv.Port = uint16(configReader.GetInt("inverter.port"))
 
-	j := 0
+	//j := 0
 	pollms := time.Duration(configReader.GetInt("solarmon.pollInterval")) * time.Millisecond
 	liveFilename := configReader.GetString("solarmon.liveDataFile")
 
 	var dataOut LiveData
 
-	for j < 20 {
+	for /*j < 20*/ {
 
 		go inv.PollData(inverterChan)
 		go meter.PollData(gridChan)
@@ -75,11 +75,11 @@ func main() {
 		dataOut.TimeStamp = time.Now().Unix()
 
 		FileWriterLiveDataChan <- dataOut
-		fmt.Printf("Grid Demand: %.6g W, Solar Generation: %.6g W, House Demand: %.6gW\n",
-			gridData.InstantaneousDemand, inverterData.AC_Power, dataOut.HousePowerUsage)
+		//fmt.Printf("Grid Demand: %.6g W, Solar Generation: %.6g W, House Demand: %.6gW\n",
+		//	gridData.InstantaneousDemand, inverterData.AC_Power, dataOut.HousePowerUsage)
 
 		time.Sleep(pollms)
-		j++
+//		j++
 	}
 }
 
