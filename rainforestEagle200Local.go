@@ -115,6 +115,8 @@ func (self *RainforestEagle200Local) Setup() {
 func (self *RainforestEagle200Local) GetData() DataResponse {
 	var devDetails DeviceDetailsDevice
 
+	retry := 10
+	retryTime := time.Duration(10 * time.Second);
 	resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	hardwareAddr := self.MeterHardwareAddr
 
@@ -128,31 +130,42 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 </Components>
 </Command>`, hardwareAddr)
 
-	resp, err := resty.R().SetBasicAuth(self.User, self.Pass).
-		SetBody(cmd).
-		SetResult(AuthSuccess{}).
-		Post(fmt.Sprintf("https://%s/cgi-bin/post_manager", self.Host))
+	var indexOfName map[string]int
+	var LastContactStr string
+	for retry > 0 {
+		resp, err := resty.R().SetBasicAuth(self.User, self.Pass).
+			SetBody(cmd).
+			SetResult(AuthSuccess{}).
+			Post(fmt.Sprintf("https://%s/cgi-bin/post_manager", self.Host))
 
-	if err != nil {
-		fmt.Printf("%s\n", fmt.Errorf("%s", err))
+		if err != nil {
+			fmt.Printf("%s\n", fmt.Errorf("%s", err))
+			retry = retry - 1
+			time.Sleep(retryTime)
+			continue
+		}
+
+		re := regexp.MustCompile("&")
+		fixedResp := re.ReplaceAllString(string(resp.Body()), " and ")
+		//fmt.Printf("%s\n", fixedResp)
+
+		if err := xml.Unmarshal([]byte(fixedResp), &devDetails); err != nil {
+			fmt.Printf("Client unmarshal failed: " + err.Error())
+			retry = retry - 1
+			time.Sleep(retryTime)
+			continue
+		} 
+
+		LastContactStr = devDetails.Details.LastContact
+		//fmt.Printf("Last Contact: %s\n", LastContactStr)
+
+		indexOfName = make(map[string]int)
+		for ix, _ := range devDetails.Components[0].Variables {
+			name := devDetails.Components[0].Variables[ix].Name
+			indexOfName[name] = ix
+		}
 	}
 
-	re := regexp.MustCompile("&")
-	fixedResp := re.ReplaceAllString(string(resp.Body()), " and ")
-	//fmt.Printf("%s\n", fixedResp)
-
-	if err := xml.Unmarshal([]byte(fixedResp), &devDetails); err != nil {
-		fmt.Printf("Client unmarshal failed: " + err.Error())
-	}
-
-	LastContactStr := devDetails.Details.LastContact
-	//fmt.Printf("Last Contact: %s\n", LastContactStr)
-
-	indexOfName := make(map[string]int)
-	for ix, _ := range devDetails.Components[0].Variables {
-		name := devDetails.Components[0].Variables[ix].Name
-		indexOfName[name] = ix
-	}
 	InstantaneousDemandStr := devDetails.Components[0].Variables[indexOfName["zigbee:InstantaneousDemand"]].Value
 	KWhFromGridStr := devDetails.Components[0].Variables[indexOfName["zigbee:CurrentSummationDelivered"]].Value
 	KWhToGridStr := devDetails.Components[0].Variables[indexOfName["zigbee:CurrentSummationReceived"]].Value
