@@ -130,7 +130,7 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 </Components>
 </Command>`, hardwareAddr)
 
-	var indexOfName map[string]int
+	indexOfName := make(map[string]int)
 	var LastContactStr string
 	for retry > 0 {
 		resp, err := resty.R().SetBasicAuth(self.User, self.Pass).
@@ -143,7 +143,7 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 			retry = retry - 1
 			time.Sleep(retryTime)
 			continue
-		}
+		}                        
 
 		re := regexp.MustCompile("&")
 		fixedResp := re.ReplaceAllString(string(resp.Body()), " and ")
@@ -156,10 +156,11 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 			continue
 		} 
 
+                retry = 0 // We got here, so no errors
 		LastContactStr = devDetails.Details.LastContact
 		//fmt.Printf("Last Contact: %s\n", LastContactStr)
 
-		indexOfName = make(map[string]int)
+		//indexOfName = make(map[string]int)
 		for ix, _ := range devDetails.Components[0].Variables {
 			name := devDetails.Components[0].Variables[ix].Name
 			indexOfName[name] = ix
