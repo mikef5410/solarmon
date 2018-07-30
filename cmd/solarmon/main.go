@@ -56,16 +56,28 @@ func main() {
 
 	var dataOut LiveData
 
+	go FileWriter(liveFilename, FileWriterLiveDataChan)
 	for /*j < 20*/ {
 
 		go inv.PollData(inverterChan)
 		go meter.PollData(gridChan)
 
-		go FileWriter(liveFilename, FileWriterLiveDataChan)
 
-		gridData = <-gridChan
-		inverterData = <-inverterChan
+		gotGrid:=false
+		gotInv:=false
+		timeout:=false
+		for ((gotGrid && gotInv) == false) && (timeout == false) {
+		select {
+ 		case gridData = <-gridChan :
+		     gotGrid=true
+		case: inverterData = <-inverterChan :
+		     gotInv=true
+		case <- time.After(120 * time.Second) :
+		     timeout=true
+		     }
+		     }
 
+                if (timeout == false) && ((gotGrid && gotInv)==true)  {
 		gridData.InstantaneousDemand = gridData.InstantaneousDemand * 1000 //Convert kW to W
 
 		dataOut.InverterData = inverterData
@@ -77,7 +89,7 @@ func main() {
 		FileWriterLiveDataChan <- dataOut
 		//fmt.Printf("Grid Demand: %.6g W, Solar Generation: %.6g W, House Demand: %.6gW\n",
 		//	gridData.InstantaneousDemand, inverterData.AC_Power, dataOut.HousePowerUsage)
-
+		}
 		time.Sleep(pollms)
 //		j++
 	}
