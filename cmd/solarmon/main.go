@@ -61,8 +61,8 @@ func main() {
 		stopInv := make(chan int, 1)
 		stopMeter := make(chan int, 1)
 
-		go inv.PollData(inverterChan)
-		go meter.PollData(gridChan)
+		go inv.PollData(inverterChan, stopInv)
+		go meter.PollData(gridChan, stopMeter)
 
 		//gridData = <-gridChan
 		//inverterData = <-inverterChan
