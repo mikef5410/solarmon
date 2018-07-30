@@ -182,6 +182,14 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 
 }
 
-func (self *RainforestEagle200Local) PollData(gridChannel chan DataResponse) {
-	gridChannel <- self.GetData()
+func (self *RainforestEagle200Local) PollData(gridChannel chan DataResponse, stopChan chan int) {
+	for {
+		select {
+		default:
+			gridChannel <- self.GetData()
+			return
+		case <-stopChan:
+			return
+		}
+	}
 }

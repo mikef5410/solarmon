@@ -250,23 +250,33 @@ func (inverter *SolarEdgeModbus) AllRegDump() {
 	}
 }
 
-func (inverter *SolarEdgeModbus) PollData(inverterChannel chan PerfData) {
+func (inverter *SolarEdgeModbus) PollData(inverterChannel chan PerfData, stopChan chan int) {
 	var data PerfData
 
-	data.AC_Power = inverter.GetReg("I_AC_Power").Value
-	data.AC_Current = inverter.GetReg("I_AC_Current").Value
-	data.AC_Voltage = inverter.GetReg("I_AC_VoltageAB").Value
-	data.AC_VA = inverter.GetReg("I_AC_VA").Value
-	data.AC_VAR = inverter.GetReg("I_AC_VAR").Value
-	data.AC_PF = inverter.GetReg("I_AC_PF").Value
-	data.AC_Freq = inverter.GetReg("I_AC_Frequency").Value
-	data.AC_Energy = inverter.GetReg("I_AC_Energy").Value
-	data.DC_Voltage = inverter.GetReg("I_DC_Voltage").Value
-	data.DC_Current = inverter.GetReg("I_DC_Current").Value
-	data.DC_Power = inverter.GetReg("I_DC_Power").Value
-	data.SinkTemp = inverter.GetReg("I_Temp_Sink").Value
-	data.Status = inverter.GetReg("I_Status_Vendor").Value
-	data.Event1 = inverter.GetReg("I_Event_1_Vendor").Value
+	for {
+		select {
+		default:
+			data.AC_Power = inverter.GetReg("I_AC_Power").Value
+			data.AC_Current = inverter.GetReg("I_AC_Current").Value
+			data.AC_Voltage = inverter.GetReg("I_AC_VoltageAB").Value
+			data.AC_VA = inverter.GetReg("I_AC_VA").Value
+			data.AC_VAR = inverter.GetReg("I_AC_VAR").Value
+			data.AC_PF = inverter.GetReg("I_AC_PF").Value
+			data.AC_Freq = inverter.GetReg("I_AC_Frequency").Value
+			data.AC_Energy = inverter.GetReg("I_AC_Energy").Value
+			data.DC_Voltage = inverter.GetReg("I_DC_Voltage").Value
+			data.DC_Current = inverter.GetReg("I_DC_Current").Value
+			data.DC_Power = inverter.GetReg("I_DC_Power").Value
+			data.SinkTemp = inverter.GetReg("I_Temp_Sink").Value
+			data.Status = inverter.GetReg("I_Status_Vendor").Value
+			data.Event1 = inverter.GetReg("I_Event_1_Vendor").Value
 
-	inverterChannel <- data
+			inverterChannel <- data
+			return
+
+		case <-stopChan:
+			return
+		}
+	}
+
 }

@@ -58,6 +58,8 @@ func main() {
 
 	go FileWriter(liveFilename, FileWriterLiveDataChan)
 	for /*j < 20*/ {
+		stopInv := make(chan int, 1)
+		stopMeter := make(chan int, 1)
 
 		go inv.PollData(inverterChan)
 		go meter.PollData(gridChan)
@@ -91,6 +93,10 @@ func main() {
 			FileWriterLiveDataChan <- dataOut
 			//fmt.Printf("Grid Demand: %.6g W, Solar Generation: %.6g W, House Demand: %.6gW\n",
 			//	gridData.InstantaneousDemand, inverterData.AC_Power, dataOut.HousePowerUsage)
+		} else {
+			//timed out. kill our goroutines
+			stopInv <- 1
+			stopMeter <- 1
 		}
 		time.Sleep(pollms)
 		//		j++
