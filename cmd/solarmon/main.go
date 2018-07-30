@@ -62,6 +62,8 @@ func main() {
 		go inv.PollData(inverterChan)
 		go meter.PollData(gridChan)
 
+		//gridData = <-gridChan
+		//inverterData = <-inverterChan
 
 		gotGrid:=false
 		gotInv:=false
@@ -91,7 +93,7 @@ func main() {
 		//	gridData.InstantaneousDemand, inverterData.AC_Power, dataOut.HousePowerUsage)
 		}
 		time.Sleep(pollms)
-//		j++
+		//		j++
 	}
 }
 
@@ -100,8 +102,8 @@ func FileWriter(filename string, dataChan chan LiveData) {
 	for {
 		dataOut := <-dataChan
 		serialized, err := yaml.Marshal(dataOut)
-		if ( err != nil ) {
-			fmt.Errorf("YAML Marshalling error: %s\n",err)
+		if err != nil {
+			fmt.Errorf("YAML Marshalling error: %s\n", err)
 		} else {
 			ioutil.WriteFile(filename, serialized, 0644)
 		}
