@@ -156,7 +156,7 @@ func (inverter *SolarEdgeModbus) GetReg(name string) RegResult {
 	if attribs, ok := regAddr[name]; ok {
 		//Lookup was OK
 		for inverter.checkStale(attribs.addr) == false {
-		    time.Sleep(1*Time.Second)
+			time.Sleep(1 * time.Second)
 		}
 
 		startAddr := 2 * (attribs.addr - inverter.baseAddr)

@@ -116,7 +116,7 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 	var devDetails DeviceDetailsDevice
 
 	retry := 10
-	retryTime := time.Duration(10 * time.Second);
+	retryTime := time.Duration(10 * time.Second)
 	resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	hardwareAddr := self.MeterHardwareAddr
 
@@ -143,7 +143,7 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 			retry = retry - 1
 			time.Sleep(retryTime)
 			continue
-		}                        
+		}
 
 		re := regexp.MustCompile("&")
 		fixedResp := re.ReplaceAllString(string(resp.Body()), " and ")
@@ -154,9 +154,9 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 			retry = retry - 1
 			time.Sleep(retryTime)
 			continue
-		} 
+		}
 
-                retry = 0 // We got here, so no errors
+		retry = 0 // We got here, so no errors
 		LastContactStr = devDetails.Details.LastContact
 		//fmt.Printf("Last Contact: %s\n", LastContactStr)
 
