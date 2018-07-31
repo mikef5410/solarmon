@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+ 
+<head>
+  <title>Solar and Grid Usage</title>
+</head>
+ 
+<body onload="init();" style="background-color:#848484">
+<center><H2>Current Solar and Grid</H2></center>
+<table><tbody>
+     <tr><td width="100%">
+     <canvas id="CanvasHousePower" width="33%" ></canvas>
+     <canvas id="CanvasSolarGeneration" width="33%" ></canvas>
+     <canvas id="CanvasGridUsage" width="33%" ></canvas>
+     </td>
+     </tr>
+ </tbody>
+</table> 
+
+
+<script type="text/javascript" src="yaml.js"></script>
+  <script type="text/javascript" src="steelseries-min.js"></script>
+  <script type="text/javascript" src="tween-min.js"></script>
+    <script>
+    
+var xhr = new XMLHttpRequest();
+var gridPower;
+
+
+//When our page is hidden, don't continue to update over the network
+var hidden, visibilityChange; 
+if (typeof document.hidden !== "undefined") { // Opera 12.10 and Firefox 18 and later support 
+    hidden = "hidden";
+    visibilityChange = "visibilitychange";
+} else if (typeof document.msHidden !== "undefined") {
+    hidden = "msHidden";
+    visibilityChange = "msvisibilitychange";
+} else if (typeof document.webkitHidden !== "undefined") {
+    hidden = "webkitHidden";
+    visibilityChange = "webkitvisibilitychange";
+}
+
+var loop = 1;
+
+
+
+//Setup our gauges
+function init() {
+    var sectionsGridPower = [ steelseries.Section(-7000,0, 'rgba(0, 220, 0, 0.3)'),
+                              steelseries.Section(0,10000, 'rgba(220,0,0,0.3)') ];
+    var areaGridPower = [steelseries.Section(1000,10000, 'rgba(220,0,0,0.3)')];
+
+    var browserWidth = getWidth();
+    var gaugeSize = Math.floor(0.95*(browserWidth/3.0)); //Scale our guages to the available space
+    
+    gridPower = new steelseries.Radial('CanvasGridUsage', {
+        gaugeType: steelseries.GaugeType.TYPE4,
+        size: gaugeSize,
+        minValue: -7000,
+        maxValue: 10000,
+        section: sectionsGridPower,
+        area: areaGridPower,
+        titleString: 'Grid Power',
+        unitString: 'W',
+        threshold: 0,
+        lcdVisible: true,
+        pointerType: steelseries.PointerType.TYPE15,
+        thresholdVisible: false,
+    });
+    
+    housePower = new steelseries.Radial('CanvasHousePower', {
+        gaugeType: steelseries.GaugeType.TYPE4,
+        size: gaugeSize,
+        minValue: 0,
+        maxValue: 10000,
+        titleString: 'House Demand',
+        unitString: 'W',
+        lcdVisible: true,
+        pointerType: steelseries.PointerType.TYPE15,
+        thresholdVisible: false,
+    });
+
+    solarGeneration = new steelseries.Radial('CanvasSolarGeneration', {
+        gaugeType: steelseries.GaugeType.TYPE4,
+        size: gaugeSize,
+        minValue: 0,
+        maxValue: 7000,
+        titleString: 'Solar Generation',
+        unitString: 'W',
+        lcdVisible: true,
+        userLedBlinking: false,
+        pointerType: steelseries.PointerType.TYPE15,
+        thresholdVisible: false,
+        threshold: 7000,
+    });
+
+    //var xhr = new XMLHttpRequest();
+    update();   
+}
+
+//Callback when visibility changes. Throws the "loop" boolean on or off
+function handleVisibilityChange() {
+    if (document[hidden]) {
+        loop=0;
+        //console.log("Pause");
+    } else {
+        loop=1;
+        //console.log("Unpause");
+    }
+}
+
+//Get the raw data from the network calls "processRequest" with the newly acquired data
+//just loop if we're not visible
+async function update() {
+    document.addEventListener(visibilityChange, handleVisibilityChange, false);
+    
+    while (1) {
+        if (loop) {
+            xhr.open("GET","http://mrf-gw.mrf.sonoma.ca.us/solar/solarmonLiveData", true);
+            xhr.send();
+            xhr.addEventListener("readystatechange", processRequest, false);
+        }
+        await sleep(2000);
+    }
+}
+
+//Raw data is in YAML form. Parse it and update the gauges
+function processRequest(e) {
+    if (xhr.readyState == 4 && xhr.status == 200) {
+        var response = YAML.parse(xhr.responseText);
+        //            alert(response);
+        //            console.log(response);
+        //            console.log(response.griddata.instantaneousdemand)
+        gridPower.setValueAnimated(response.griddata.instantaneousdemand);
+        housePower.setValueAnimated(response.housepowerusage);
+        solarGeneration.setValueAnimated(response.inverterdata.ac_power);
+    }
+}
+
+//This is how we sleep in javascript
+function sleep(ms) {
+    return new Promise(resolve=>setTimeout(resolve, ms));
+    
+}
+
+//Get our window dimensions
+function getWidth() {
+    return Math.max(
+        document.body.scrollWidth,
+        document.documentElement.scrollWidth,
+        document.body.offsetWidth,
+        document.documentElement.offsetWidth,
+        document.documentElement.clientWidth
+    );
+}
+
+function getHeight() {
+    return Math.max(
+        document.body.scrollHeight,
+        document.documentElement.scrollHeight,
+        document.body.offsetHeight,
+        document.documentElement.offsetHeight,
+        document.documentElement.clientHeight
+    );
+}
+
+</script>
+</body>
+ 
+</html>

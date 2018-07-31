@@ -1,0 +1,23 @@
+inverterdata:
+  ac_power: 2940.3
+  ac_current: 12.39
+  ac_voltage: 237.3
+  ac_va: 2945.5
+  ac_var: 174.83
+  ac_pf: 99.82000000000001
+  ac_freq: 59.96
+  ac_energy: 2.245113e+06
+  dc_voltage: 378.20000000000005
+  dc_current: 7.892
+  dc_power: 2985.1000000000004
+  sinktemp: 57.95
+  status: 0
+  event1: 1
+griddata:
+  lastcontact: 2018-07-31T15:53:31-07:00
+  instantaneousdemand: -1707
+  kwhfromgrid: 72307.842
+  kwhtogrid: 1655.64
+inverterefficiency: 98.49921275669156
+housepowerusage: 1233.3000000000002
+timestamp: 1533077617
