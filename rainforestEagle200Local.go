@@ -1,5 +1,11 @@
 package solarmon
 
+/* Support for Rainforest Automation Eagle-200 Zigbee<->Smart Meter gateway
+   The Eagle-200 implements a local REST API to get Smart Meter data. It's
+   returned in XML format. We pull apart the XML, load a struct, and optionally
+   send the result on a channel.
+*/
+
 import (
 	"crypto/tls"
 	"encoding/xml"
@@ -82,6 +88,7 @@ type DataResponse struct {
 	KWhToGrid           float64
 }
 
+//Read the device list from the gateway. Het the hardware address of the first electric_meter
 func (self *RainforestEagle200Local) Setup() {
 	var deviceList DeviceList
 
@@ -112,6 +119,7 @@ func (self *RainforestEagle200Local) Setup() {
 	}
 }
 
+// Read available data from the meter. Return a struct loaded up with current data
 func (self *RainforestEagle200Local) GetData() DataResponse {
 	var devDetails DeviceDetailsDevice
 
@@ -182,6 +190,7 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 
 }
 
+// Goroutine to read one set of data, push it on a channel, and return
 func (self *RainforestEagle200Local) PollData(gridChannel chan DataResponse, stopChan chan int) {
 	for {
 		select {

@@ -1,5 +1,10 @@
 package solarmon
 
+/* Read current operating stats from a SolarEdge Inverter using MODBUS over TCP
+   connection. Data is in the form of "Registers" the Registers are sized in units of
+   16-bits.
+*/
+
 import (
 	"encoding/binary"
 	//	"encoding/hex"
@@ -55,6 +60,7 @@ const (
 	STRING  = 5
 )
 
+//Register map of the interesting data we can get
 var regAddr = map[string]*regInfo{
 	"C_Manufacturer":  {40005, STRING, 0, 32, ""},
 	"C_Model":         {40021, STRING, 0, 32, ""},
@@ -98,6 +104,7 @@ var regAddr = map[string]*regInfo{
 	"I_Event_4_Vendor": {40120, UINT32, 0, 0, ""},
 }
 
+// Current performance data is stuffed in here
 type PerfData struct {
 	AC_Power   float64
 	AC_Current float64
@@ -115,6 +122,10 @@ type PerfData struct {
 	Event1     float64
 }
 
+//Data is treated as belonging to one of two 'blocks'
+//and is timestamped. If the data is less than 'StaleAge' seconds old,
+//AND the required block is in the buffer, then  ok, else, read the
+//required buffer and timestamp it, and return ok
 func (inverter *SolarEdgeModbus) checkStale(addr uint32) bool {
 	retry := 2
 	var err error
@@ -150,6 +161,8 @@ func (inverter *SolarEdgeModbus) checkStale(addr uint32) bool {
 	return (true)
 }
 
+//Get the value of a single register by name. Reads from the BUFFER, not directly
+//from the inverter.
 func (inverter *SolarEdgeModbus) GetReg(name string) RegResult {
 	result := RegResult{Value: 0, Units: "", Datatype: FLOAT64, Strval: ""}
 	value := int32(0)
@@ -192,6 +205,7 @@ func (inverter *SolarEdgeModbus) GetReg(name string) RegResult {
 	return (result)
 }
 
+//Make a new TCP connection to the inverter if necessary
 func (inverter *SolarEdgeModbus) checkConnection() (ok bool) {
 	if inverter.connected {
 		return (true)
@@ -211,6 +225,7 @@ func (inverter *SolarEdgeModbus) checkConnection() (ok bool) {
 	return (ok)
 }
 
+//Load the buffer with the requested memory block's contents over TCP-MODBUS connection
 func (inverter *SolarEdgeModbus) get(addr uint32, length int) (err error) {
 	if inverter.checkConnection() {
 		//fmt.Printf("Read %x for %d\n", addr, uint16(length/2))
@@ -227,6 +242,7 @@ func (inverter *SolarEdgeModbus) get(addr uint32, length int) (err error) {
 	return (err)
 }
 
+//Debugging routine; dumps all registers
 func (inverter *SolarEdgeModbus) AllRegDump() {
 	//Make an array of keys to sort
 	keys := make([]string, 0, len(regAddr))
@@ -250,6 +266,8 @@ func (inverter *SolarEdgeModbus) AllRegDump() {
 	}
 }
 
+//Get a complete set of data, stuff it into a struct, push the struct onto the data channel
+//and return.
 func (inverter *SolarEdgeModbus) PollData(inverterChannel chan PerfData, stopChan chan int) {
 	var data PerfData
 
