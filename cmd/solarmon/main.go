@@ -73,8 +73,8 @@ func main() {
 	var dataOut LiveData
 
 	database := openDB(dbFile)
-	startOfDayEnergy := initializeSOD(database)
-	dayNum := time.Now().Day()
+	startOfDayEnergy := initializeSOD(database) 
+	dayNum := time.Now().Day() //Use Day-Of-Month to detect when we roll past midnight
 
 	//Get our start-of-day kWh counters
 
