@@ -15,9 +15,18 @@ import (
 type LiveData struct {
 	InverterData       solarmon.PerfData
 	GridData           solarmon.DataResponse
+	DailyEnergy        EnergyCounters
 	InverterEfficiency float64
 	HousePowerUsage    float64
-	TimeStamp          int64
+	TimeStamp          time.Time
+}
+
+type EnergyCounters struct {
+	SolarKWh    float64
+	KWhToGrid   float64
+	KWhFromGrid float64
+	GridNet     float64
+	HouseUsage  float64
 }
 
 func main() {
@@ -64,6 +73,10 @@ func main() {
 	var dataOut LiveData
 
 	database := openDB(dbFile)
+	startOfDayEnergy := initializeSOD(database)
+	dayNum := time.Now().Day()
+
+	//Get our start-of-day kWh counters
 
 	//Launch our live data file writer, and database logger threads
 	go FileWriter(liveFilename, FileWriterLiveDataChan)
@@ -79,7 +92,6 @@ func main() {
 
 		//gridData = <-gridChan
 		//inverterData = <-inverterChan
-
 		gotGrid := false
 		gotInv := false
 		timeout := false
@@ -101,7 +113,21 @@ func main() {
 			dataOut.GridData = gridData
 			dataOut.InverterEfficiency = 100 * inverterData.AC_Power / inverterData.DC_Power
 			dataOut.HousePowerUsage = inverterData.AC_Power + gridData.InstantaneousDemand
-			dataOut.TimeStamp = time.Now().Unix()
+			dataOut.TimeStamp = time.Now()
+
+			if time.Now().Day() != dayNum { //We just rolled past midnight
+				dayNum = time.Now().Day()
+				// update start-of-day numbers
+				startOfDayEnergy.SolarKWh = inverterData.AC_Energy
+				startOfDayEnergy.KWhToGrid = dataOut.GridData.KWhToGrid
+				startOfDayEnergy.KWhFromGrid = dataOut.GridData.KWhFromGrid
+			}
+
+			dataOut.DailyEnergy.SolarKWh = inverterData.AC_Energy - startOfDayEnergy.SolarKWh
+			dataOut.DailyEnergy.KWhToGrid = dataOut.GridData.KWhToGrid - startOfDayEnergy.KWhToGrid
+			dataOut.DailyEnergy.KWhFromGrid = dataOut.GridData.KWhFromGrid - startOfDayEnergy.KWhFromGrid
+			dataOut.DailyEnergy.GridNet = dataOut.DailyEnergy.KWhFromGrid - dataOut.DailyEnergy.KWhToGrid
+			dataOut.DailyEnergy.HouseUsage = dataOut.DailyEnergy.SolarKWh + dataOut.DailyEnergy.GridNet
 
 			FileWriterLiveDataChan <- dataOut
 			DBWriterChan <- dataOut
@@ -144,15 +170,18 @@ func openDB(filename string) *sql.DB {
 }
 
 func DBWriter(db *sql.DB, dataChan chan LiveData) {
-	statement, _ := db.Prepare(`INSERT INTO solarPerf (datetime(meter_lastContact,'unixepoch'), meter_demand, meter_KWHFromGrid, meter_KWHToGrid,
+	statement, _ := db.Prepare(`INSERT INTO solarPerf (meter_lastContact, meter_demand, meter_KWHFromGrid, meter_KWHToGrid,
                                     inv_AC_Power, inv_AC_Current, inv_AC_Voltage, inv_AC_VA, inv_AC_VAR, 
                                     inv_AC_PF, inv_AC_Freq, inv_AC_Energy, inv_DC_Voltage, inv_DC_Current,
                                     inv_DC_Power, inv_SinkTemp, inv_Status, inv_Event1, inv_Efficiency,
-                                    House_Demand, datetime(timestamp,'unixepoch') ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+                                    House_Demand, timestamp ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 
 	for {
 		currentData := <-dataChan
-		statement.Exec(currentData.GridData.LastContact.Unix(),
+
+		timeLastContact, _ := currentData.GridData.LastContact.MarshalText()
+		timeStamp, _ := currentData.TimeStamp.MarshalText()
+		statement.Exec(timeLastContact,
 			currentData.GridData.InstantaneousDemand, currentData.GridData.KWhFromGrid,
 			currentData.GridData.KWhToGrid, currentData.InverterData.AC_Power, currentData.InverterData.AC_Current,
 			currentData.InverterData.AC_Voltage, currentData.InverterData.AC_VA, currentData.InverterData.AC_VAR,
@@ -160,7 +189,40 @@ func DBWriter(db *sql.DB, dataChan chan LiveData) {
 			currentData.InverterData.DC_Voltage, currentData.InverterData.DC_Current,
 			currentData.InverterData.DC_Power, currentData.InverterData.SinkTemp, int(currentData.InverterData.Status),
 			int(currentData.InverterData.Event1), currentData.InverterEfficiency, currentData.HousePowerUsage,
-			currentData.TimeStamp)
+			timeStamp)
 	}
 
 }
+
+//Initialize Energy counters with start-of-day numbers
+func initializeSOD(db *sql.DB) EnergyCounters {
+	var results EnergyCounters
+
+	results.SolarKWh = 0
+	results.KWhToGrid = 0
+	results.KWhFromGrid = 0
+
+	//First try to get the first entry for today
+	res := db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy FROM solarPerf 
+                            WHERE timeStamp BETWEEN datetime('now','start of day') AND datetime('now','localtime') 
+                            ORDER BY timeStamp LIMIT 1`)
+
+	err := res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh)
+	if err == nil {
+		return (results)
+	}
+
+	//No entry yet for today, so take the last available
+	res = db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy FROM solarPerf 
+                           WHERE timeStamp <= datetime('now','start of day')  
+                           ORDER BY timeStamp DESC LIMIT 1`)
+	err = res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh)
+	if err == nil {
+		return (results)
+	}
+
+	return (results)
+}
+
+// Beginning of day in sqlite3:
+//SELECT * FROM statistics WHERE date BETWEEN datetime('now', 'start of day') AND datetime('now', 'localtime') ORDER BY date LIMIT 1;
