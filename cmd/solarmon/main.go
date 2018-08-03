@@ -118,16 +118,16 @@ func main() {
 			if time.Now().Day() != dayNum { //We just rolled past midnight
 				dayNum = time.Now().Day()
 				// update start-of-day numbers
-				startOfDayEnergy.SolarKWh = inverterData.AC_Energy
+				startOfDayEnergy.SolarKWh = inverterData.AC_Energy/1000.0
 				startOfDayEnergy.KWhToGrid = dataOut.GridData.KWhToGrid
 				startOfDayEnergy.KWhFromGrid = dataOut.GridData.KWhFromGrid
 			}
 
-			dataOut.DailyEnergy.SolarKWh = inverterData.AC_Energy - startOfDayEnergy.SolarKWh
+			dataOut.DailyEnergy.SolarKWh = inverterData.AC_Energy/1000.0 - startOfDayEnergy.SolarKWh
 			dataOut.DailyEnergy.KWhToGrid = dataOut.GridData.KWhToGrid - startOfDayEnergy.KWhToGrid
 			dataOut.DailyEnergy.KWhFromGrid = dataOut.GridData.KWhFromGrid - startOfDayEnergy.KWhFromGrid
 			dataOut.DailyEnergy.GridNet = dataOut.DailyEnergy.KWhFromGrid - dataOut.DailyEnergy.KWhToGrid
-			dataOut.DailyEnergy.HouseUsage = dataOut.DailyEnergy.SolarKWh + dataOut.DailyEnergy.GridNet
+			dataOut.DailyEnergy.HouseUsage =  dataOut.DailyEnergy.GridNet + dataOut.DailyEnergy.SolarKWh
 
 			FileWriterLiveDataChan <- dataOut
 			DBWriterChan <- dataOut
