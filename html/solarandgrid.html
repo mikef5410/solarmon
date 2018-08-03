@@ -9,6 +9,7 @@
  
 <body onload="init();" style="background-color:#848484">
 <center><H2>Current Solar and Grid</H2></center>
+<div id="Gauges">
 <table><tbody>
      <tr><td width="100%">
      <canvas id="CanvasHousePower" width="33%" ></canvas>
@@ -27,7 +28,7 @@
      </td></tr>
 </tbody>
 </table> 
-
+</div>
 
 <script type="text/javascript" src="yaml.js"></script>
 <script type="text/javascript" src="steelseries-min.js"></script>
@@ -42,6 +43,9 @@
   var solarEnergy;
   var houseEnergy;
   var gridEnergy;
+  var loop = 1;
+  var resizing = false;
+  
   
   //When our page is hidden, don't continue to update over the network
   var hidden, visibilityChange; 
@@ -55,9 +59,6 @@
       hidden = "webkitHidden";
       visibilityChange = "webkitvisibilitychange";
   }
-  
-  var loop = 1;
-  
   
   //Setup our gauges
   function init() {
@@ -148,13 +149,45 @@
           headerString: 'Grid Usage Today',
           headerStringVisible: true,
       });
-      
+
+      window.addEventListener('resize', function(event){
+          handleResize(event);
+      });
       
       
       //var xhr = new XMLHttpRequest();
       update();   
   }
-  
+
+
+  function handleResize(e) {
+      var browserWidth = getWidth();
+      var gaugeSize = Math.floor(0.95*(browserWidth/3.0)); //Scale our guages to the available space
+
+      if (resizing == true) {
+          return;
+      }
+      resizing=true;
+      //console.log("Width is ",browserWidth,"\n");
+/*      gridPower.size = gaugeSize;
+      housePower.size = gaugeSize;
+      solarGeneration.size = gaugeSize;
+      sinkTemp.width = gaugeSize;
+      sinkTemp.height = Math.floor(gaugeSize/3);
+
+      solarEnergy.width = gaugeSize;
+      solarEnergy.height = Math.floor(gaugeSize/4);
+      houseEnergy.width = gaugeSize;
+      houseEnergy.height = Math.floor(gaugeSize/4);
+      gridEnergy.width = gaugeSize;
+      gridEnergy.height = Math.floor(gaugeSize/4);*/
+
+      //forceRedraw(document.getElementById('Gauges'));
+      window.location.href=window.location.href;
+      resizing=false;
+  }
+
+
   //Callback when visibility changes. Throws the "loop" boolean on or off
   function handleVisibilityChange() {
       if (document[hidden]) {
@@ -225,6 +258,29 @@
           document.documentElement.clientHeight
       );
   }
+
+ function forceRedraw(element) {
+     var disp = element.style.display;
+     element.style.display = 'none';
+     var trick = element.offsetHeight;
+     element.style.display = disp;
+  }
+
+  function forceRedraw2(element) {
+      
+    if (!element) { return; }
+
+    var n = document.createTextNode(' ');
+    var disp = element.style.display;  // don't worry about previous display style
+
+    element.appendChild(n);
+    element.style.display = 'none';
+
+    setTimeout(function(){
+        element.style.display = disp;
+        n.parentNode.removeChild(n);
+    },20); // you can play with this timeout to make it as short as possible
+}
   
 </script>
 </body>
