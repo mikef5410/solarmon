@@ -73,7 +73,7 @@ func main() {
 	var dataOut LiveData
 
 	database := openDB(dbFile)
-	startOfDayEnergy := initializeSOD(database) 
+	startOfDayEnergy := initializeSOD(database)
 	dayNum := time.Now().Day() //Use Day-Of-Month to detect when we roll past midnight
 
 	//Get our start-of-day kWh counters
@@ -118,7 +118,7 @@ func main() {
 			if time.Now().Day() != dayNum { //We just rolled past midnight
 				dayNum = time.Now().Day()
 				// update start-of-day numbers
-				startOfDayEnergy.SolarKWh = inverterData.AC_Energy/1000.0
+				startOfDayEnergy.SolarKWh = inverterData.AC_Energy / 1000.0
 				startOfDayEnergy.KWhToGrid = dataOut.GridData.KWhToGrid
 				startOfDayEnergy.KWhFromGrid = dataOut.GridData.KWhFromGrid
 			}
@@ -127,7 +127,7 @@ func main() {
 			dataOut.DailyEnergy.KWhToGrid = dataOut.GridData.KWhToGrid - startOfDayEnergy.KWhToGrid
 			dataOut.DailyEnergy.KWhFromGrid = dataOut.GridData.KWhFromGrid - startOfDayEnergy.KWhFromGrid
 			dataOut.DailyEnergy.GridNet = dataOut.DailyEnergy.KWhFromGrid - dataOut.DailyEnergy.KWhToGrid
-			dataOut.DailyEnergy.HouseUsage =  dataOut.DailyEnergy.GridNet + dataOut.DailyEnergy.SolarKWh
+			dataOut.DailyEnergy.HouseUsage = dataOut.DailyEnergy.GridNet + dataOut.DailyEnergy.SolarKWh
 
 			FileWriterLiveDataChan <- dataOut
 			DBWriterChan <- dataOut
@@ -204,20 +204,22 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 
 	//First try to get the first entry for today
 	res := db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy FROM solarPerf 
-                            WHERE timeStamp BETWEEN datetime('now','start of day') AND datetime('now','localtime') 
-                            ORDER BY timeStamp LIMIT 1`)
+                            WHERE date(datetime(timestamp,'localtime')) BETWEEN date(datetime('now','start of day')) AND date(datetime('now')) 
+                            ORDER BY timestamp LIMIT 1`)
 
 	err := res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh)
 	if err == nil {
+		results.SolarKWh = results.SolarKWh / 1000.0
 		return (results)
 	}
 
 	//No entry yet for today, so take the last available
 	res = db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy FROM solarPerf 
-                           WHERE timeStamp <= datetime('now','start of day')  
-                           ORDER BY timeStamp DESC LIMIT 1`)
+                           WHERE date(datetime(timestamp,'localtime')) <= date(datetime('now','start of day')) 
+                           ORDER BY timestamp DESC LIMIT 1`)
 	err = res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh)
 	if err == nil {
+		results.SolarKWh = results.SolarKWh / 1000.0
 		return (results)
 	}
 
@@ -225,4 +227,4 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 }
 
 // Beginning of day in sqlite3:
-//SELECT * FROM statistics WHERE date BETWEEN datetime('now', 'start of day') AND datetime('now', 'localtime') ORDER BY date LIMIT 1;
+//SELECT * FROM statistics WHERE date(date) BETWEEN date(datetime('now', 'start of day')) AND date(datetime('now')) ORDER BY date LIMIT 1;
