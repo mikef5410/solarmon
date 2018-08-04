@@ -1,0 +1,16 @@
+[Unit]
+Description=Solar and Grid monitoring daemon
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+GuessMainPID=true
+ExecStart=/usr/local/bin/solarmon
+RestartSec=30
+Restart=always
+User=wwwrun
+Group=www
+
+[Install]
+WantedBy=multi-user.target

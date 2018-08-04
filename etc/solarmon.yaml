@@ -1,0 +1,16 @@
+inverter:
+   host: solarEdgeInv
+   port: 502
+   pollInterval: 1000
+
+rainforest:
+   host: eagle-xyzzy
+   pollInterval: 1000
+   cloudID: xyzzy
+   installCode: xyzzyxyzzyxyzzy
+
+solarmon:
+   pollInterval: 1000
+   liveDataFile: /home/httpd/html/solar/solarmonLiveData
+   dbFile: /var/tmp/solarmon.db
+   
