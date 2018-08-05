@@ -74,7 +74,7 @@ func main() {
 
 	database := openDB(dbFile)
 	startOfDayEnergy := initializeSOD(database)
-	dayNum := time.Now().Day() //Use Day-Of-Month to detect when we roll past midnight
+	dayNum := time.Now().Local().Day() //Use Day-Of-Month to detect when we roll past midnight
 
 	//Get our start-of-day kWh counters
 
@@ -115,8 +115,8 @@ func main() {
 			dataOut.HousePowerUsage = inverterData.AC_Power + gridData.InstantaneousDemand
 			dataOut.TimeStamp = time.Now()
 
-			if time.Now().Day() != dayNum { //We just rolled past midnight
-				dayNum = time.Now().Day()
+			if time.Now().Local().Day() != dayNum { //We just rolled past midnight
+				dayNum = time.Now().Local().Day()
 				// update start-of-day numbers
 				startOfDayEnergy.SolarKWh = inverterData.AC_Energy / 1000.0
 				startOfDayEnergy.KWhToGrid = dataOut.GridData.KWhToGrid
