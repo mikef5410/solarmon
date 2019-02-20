@@ -204,7 +204,7 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 
 	//First try to get the first entry for today
 	res := db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy FROM solarPerf 
-                            WHERE date(datetime(timestamp,'localtime')) BETWEEN date(datetime('now','start of day')) AND date(datetime('now')) 
+                            WHERE datetime(timestamp,'localtime') BETWEEN datetime('now','start of day') AND datetime('now') 
                             ORDER BY timestamp LIMIT 1`)
 
 	err := res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh)
@@ -215,7 +215,7 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 
 	//No entry yet for today, so take the last available
 	res = db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy FROM solarPerf 
-                           WHERE date(datetime(timestamp,'localtime')) <= date(datetime('now','start of day')) 
+                           WHERE datetime(timestamp,'localtime') <= datetime('now','localtime') 
                            ORDER BY timestamp DESC LIMIT 1`)
 	err = res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh)
 	if err == nil {
