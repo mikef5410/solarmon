@@ -13,4 +13,18 @@ solarmon:
    pollInterval: 1000
    liveDataFile: /home/httpd/html/solar/solarmonLiveData
    dbFile: /var/tmp/solarmon.db
+
+powerwall:
+   host: energy-gateway
+   sn: XYZZYXYZZY
+   user: installer
+
+mqtt:
+   url:  tcp://mqttserver:1883/
+   clientID: solarmon
+   user: mqttuname
+   pass: xyzzy
+   prefix: /gates5410/energy
+
+
    
