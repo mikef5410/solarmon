@@ -2,17 +2,12 @@ package solarmon
 
 import (
         //"flag"
-        "database/sql"
         "fmt"
-        "github.com/mattn/go-sqlite3"
-        "github.com/mikef5410/solarmon"
-        "github.com/spf13/viper"
 	"gopkg.in/resty.v1"
-        "gopkg.in/yaml.v2"
-        "io/ioutil"
-        "time"
 	"encoding/json"
 	"strconv"
+	"strings"
+	"crypto/tls"
 )
 
 type teslaEnergyGateway struct {
@@ -75,7 +70,7 @@ type EGPerfData struct {
 	battery_instant_total_current float64
 }
 
-func (EG *teslaEnergyGateway) getSOE(EGPerfData *data) {
+func (EG *teslaEnergyGateway) getSOE(data *EGPerfData) {
 	type SOEdata struct {
 		Percentage float64
 	}
@@ -85,12 +80,12 @@ func (EG *teslaEnergyGateway) getSOE(EGPerfData *data) {
 	if err != nil {
 		fmt.Println(fmt.Errorf("getSOE failure: %s\n",err))
 	}
-	json.Unmarshal([]byte(resp),&d)
+	json.Unmarshal([]byte(resp.Body()),&d)
 	data.batt_percentage=d.Percentage
 	return
 }
 
-func (EG *teslaEnergyGateway) getSiteMaster(EGPerfData *data) {
+func (EG *teslaEnergyGateway) getSiteMaster(data *EGPerfData) {
 	type SiteMasterData struct {
 		Running bool
 		Uptime string
@@ -102,14 +97,14 @@ func (EG *teslaEnergyGateway) getSiteMaster(EGPerfData *data) {
 	if err != nil {
 		fmt.Println(fmt.Errorf("getSiteMaster failure: %s\n",err))
 	}
-	json.Unmarshal([]byte(resp),&d)
-	data.uptime=strconv.ParseUint(strings.TrimSuffix(d.Uptime,"s"),10,64)
+	json.Unmarshal([]byte(resp.Body()),&d)
+	data.uptime,err=strconv.ParseUint(strings.TrimSuffix(d.Uptime,"s"),10,64)
 	data.running=d.Running
 	data.connected_to_tesla=d.Connected_to_tesla
 	return
 }
 
-func (EG *teslaEnergyGateway) getGridStatus(EGPerfData *data) {
+func (EG *teslaEnergyGateway) getGridStatus(data *EGPerfData) {
 	type GridStatus struct {
 		Grid_status string
 		Grid_services_active bool
@@ -120,13 +115,13 @@ func (EG *teslaEnergyGateway) getGridStatus(EGPerfData *data) {
 	if err != nil {
 		fmt.Println(fmt.Errorf("getGridStatus failure: %s\n",err))
 	}
-	json.Unmarshal([]byte(resp),&d)
+	json.Unmarshal([]byte(resp.Body()),&d)
 	data.grid_status=d.Grid_status //SystemGridConnected, SystemIslandedActive, SystemTransitionToGrid
 	data.grid_services_active=d.Grid_services_active
 	return
 }
 
-func (EG *teslaEnergyGateway) getMeters(EGPerfData *data) {
+func (EG *teslaEnergyGateway) getMeters(data *EGPerfData) {
 	type meterData struct {
 		Instant_total_current float64
 		I_b_current float64
@@ -155,7 +150,7 @@ func (EG *teslaEnergyGateway) getMeters(EGPerfData *data) {
 	if err != nil {
 		fmt.Println(fmt.Errorf("getMeters failure: %s\n",err))
 	}
-	json.Unmarshal([]byte(resp),&d)
+	json.Unmarshal([]byte(resp.Body()),&d)
 	data.solar_energy_imported=d.Solar.Energy_imported
 	data.solar_energy_exported=d.Solar.Energy_exported
 	data.solar_instant_power=d.Solar.Instant_power
@@ -163,7 +158,7 @@ func (EG *teslaEnergyGateway) getMeters(EGPerfData *data) {
 	data.solar_instant_reactive_power=d.Solar.Instant_reactive_power
 	data.solar_frequency=d.Solar.Frequency
 	data.solar_instant_average_voltage=d.Solar.Instant_average_voltage
-	data.solar_last_communication_time=d.Solar.last_communication_time
+	data.solar_last_communication_time=d.Solar.Last_communication_time
 
 	data.grid_energy_imported=d.Site.Energy_imported
 	data.grid_energy_exported=d.Site.Energy_exported
@@ -172,7 +167,7 @@ func (EG *teslaEnergyGateway) getMeters(EGPerfData *data) {
 	data.grid_instant_reactive_power=d.Site.Instant_reactive_power
 	data.grid_frequency=d.Site.Frequency
 	data.grid_instant_average_voltage=d.Site.Instant_average_voltage
-	data.grid_last_communication_time=d.Site.last_communication_time
+	data.grid_last_communication_time=d.Site.Last_communication_time
 
 	data.battery_energy_imported=d.Battery.Energy_imported
 	data.battery_energy_exported=d.Battery.Energy_exported
@@ -181,7 +176,7 @@ func (EG *teslaEnergyGateway) getMeters(EGPerfData *data) {
 	data.battery_instant_reactive_power=d.Battery.Instant_reactive_power
 	data.battery_frequency=d.Battery.Frequency
 	data.battery_instant_average_voltage=d.Battery.Instant_average_voltage
-	data.battery_last_communication_time=d.Battery.last_communication_time
+	data.battery_last_communication_time=d.Battery.Last_communication_time
 
 	data.house_energy_imported=d.Load.Energy_imported
 	data.house_energy_exported=d.Load.Energy_exported
@@ -190,7 +185,7 @@ func (EG *teslaEnergyGateway) getMeters(EGPerfData *data) {
 	data.house_instant_reactive_power=d.Load.Instant_reactive_power
 	data.house_frequency=d.Load.Frequency
 	data.house_instant_average_voltage=d.Load.Instant_average_voltage
-	data.house_last_communication_time=d.Load.last_communication_time
+	data.house_last_communication_time=d.Load.Last_communication_time
 }
 
 
