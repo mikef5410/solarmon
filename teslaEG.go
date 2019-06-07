@@ -10,10 +10,10 @@ import (
 	"crypto/tls"
 )
 
-type teslaEnergyGateway struct {
+type TeslaEnergyGateway struct {
 	Host      string
-	sn        string
-	user      string
+	Sn        string
+	User      string
 }
 
 //Batt <0 ... charging
@@ -70,7 +70,7 @@ type EGPerfData struct {
 	battery_instant_total_current float64
 }
 
-func (EG *teslaEnergyGateway) getSOE(data *EGPerfData) {
+func (EG *TeslaEnergyGateway) getSOE(data *EGPerfData) {
 	type SOEdata struct {
 		Percentage float64
 	}
@@ -85,7 +85,7 @@ func (EG *teslaEnergyGateway) getSOE(data *EGPerfData) {
 	return
 }
 
-func (EG *teslaEnergyGateway) getSiteMaster(data *EGPerfData) {
+func (EG *TeslaEnergyGateway) getSiteMaster(data *EGPerfData) {
 	type SiteMasterData struct {
 		Running bool
 		Uptime string
@@ -104,7 +104,7 @@ func (EG *teslaEnergyGateway) getSiteMaster(data *EGPerfData) {
 	return
 }
 
-func (EG *teslaEnergyGateway) getGridStatus(data *EGPerfData) {
+func (EG *TeslaEnergyGateway) getGridStatus(data *EGPerfData) {
 	type GridStatus struct {
 		Grid_status string
 		Grid_services_active bool
@@ -121,7 +121,7 @@ func (EG *teslaEnergyGateway) getGridStatus(data *EGPerfData) {
 	return
 }
 
-func (EG *teslaEnergyGateway) getMeters(data *EGPerfData) {
+func (EG *TeslaEnergyGateway) getMeters(data *EGPerfData) {
 	type meterData struct {
 		Instant_total_current float64
 		I_b_current float64
@@ -191,7 +191,7 @@ func (EG *teslaEnergyGateway) getMeters(data *EGPerfData) {
 
 //Get a complete set of data, stuff it into a struct, push the struct onto the data channel
 //and return.
-func (EG *teslaEnergyGateway) PollData(EGChannel chan EGPerfData, stopChan chan int) {
+func (EG *TeslaEnergyGateway) PollData(EGChannel chan EGPerfData, stopChan chan int) {
 	var data EGPerfData
 
 	resty.SetTLSClientConfig(&tls.Config{ InsecureSkipVerify: true })
