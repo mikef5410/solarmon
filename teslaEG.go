@@ -23,51 +23,51 @@ type TeslaEnergyGateway struct {
 
 // Current performance data is stuffed in here
 type EGPerfData struct {
-	grid_status string //gridStatus
-	grid_services_active bool
+	Grid_status string //GridStatus "SystemIsIslandedActive" or "SystemGridConnected"
+	Grid_services_active bool
 	
-	uptime     uint64  //sitemaster
-	running    bool
-	connected_to_tesla bool
+	Uptime     uint64  //sitemaster
+	Running    bool
+	Connected_to_tesla bool
 
-	batt_percentage float64 //SOE
+	Batt_percentage float64 //SOE
 
-	solar_energy_imported float64 //meters
-	solar_energy_exported float64
-        solar_instant_power float64
-	solar_instant_apparent_power float64
-	solar_instant_reactive_power float64
-	solar_frequency float64
-	solar_last_communication_time string
-	solar_instant_average_voltage float64
+	Solar_energy_imported float64 //meters
+	Solar_energy_exported float64
+        Solar_instant_power float64
+	Solar_instant_apparent_power float64
+	Solar_instant_reactive_power float64
+	Solar_frequency float64
+	Solar_last_communication_time string
+	Solar_instant_average_voltage float64
 
-	grid_energy_imported float64
-	grid_energy_exported float64
-        grid_instant_power float64
-	grid_instant_apparent_power float64
-	grid_instant_reactive_power float64
-	grid_frequency float64
-	grid_last_communication_time string
-	grid_instant_average_voltage float64
+	Grid_energy_imported float64
+	Grid_energy_exported float64
+        Grid_instant_power float64
+	Grid_instant_apparent_power float64
+	Grid_instant_reactive_power float64
+	Grid_frequency float64
+	Grid_last_communication_time string
+	Grid_instant_average_voltage float64
 	
-	house_energy_imported float64
-	house_energy_exported float64
-        house_instant_power float64
-	house_instant_apparent_power float64
-	house_instant_reactive_power float64
-	house_frequency float64
-	house_last_communication_time string
-	house_instant_average_voltage float64
+	House_energy_imported float64
+	House_energy_exported float64
+        House_instant_power float64
+	House_instant_apparent_power float64
+	House_instant_reactive_power float64
+	House_frequency float64
+	House_last_communication_time string
+	House_instant_average_voltage float64
 
-	battery_energy_imported float64
-	battery_energy_exported float64
-        battery_instant_power float64
-	battery_instant_apparent_power float64
-	battery_instant_reactive_power float64
-	battery_frequency float64
-	battery_last_communication_time string
-	battery_instant_average_voltage float64
-	battery_instant_total_current float64
+	Battery_energy_imported float64
+	Battery_energy_exported float64
+        Battery_instant_power float64
+	Battery_instant_apparent_power float64
+	Battery_instant_reactive_power float64
+	Battery_frequency float64
+	Battery_last_communication_time string
+	Battery_instant_average_voltage float64
+	Battery_instant_total_current float64
 }
 
 func (EG *TeslaEnergyGateway) getSOE(data *EGPerfData) {
@@ -81,7 +81,7 @@ func (EG *TeslaEnergyGateway) getSOE(data *EGPerfData) {
 		fmt.Println(fmt.Errorf("getSOE failure: %s\n",err))
 	}
 	json.Unmarshal([]byte(resp.Body()),&d)
-	data.batt_percentage=d.Percentage
+	data.Batt_percentage=d.Percentage
 	return
 }
 
@@ -98,9 +98,9 @@ func (EG *TeslaEnergyGateway) getSiteMaster(data *EGPerfData) {
 		fmt.Println(fmt.Errorf("getSiteMaster failure: %s\n",err))
 	}
 	json.Unmarshal([]byte(resp.Body()),&d)
-	data.uptime,err=strconv.ParseUint(strings.TrimSuffix(d.Uptime,"s"),10,64)
-	data.running=d.Running
-	data.connected_to_tesla=d.Connected_to_tesla
+	data.Uptime,err=strconv.ParseUint(strings.TrimSuffix(d.Uptime,"s"),10,64)
+	data.Running=d.Running
+	data.Connected_to_tesla=d.Connected_to_tesla
 	return
 }
 
@@ -110,14 +110,14 @@ func (EG *TeslaEnergyGateway) getGridStatus(data *EGPerfData) {
 		Grid_services_active bool
 	}
 	var d GridStatus
-        url:="https://"+EG.Host+"/api/system_status/grid_status"
+        url:="https://"+EG.Host+"/api/system_status/Grid_status"
 	resp,err := resty.R().Get(url)
 	if err != nil {
 		fmt.Println(fmt.Errorf("getGridStatus failure: %s\n",err))
 	}
 	json.Unmarshal([]byte(resp.Body()),&d)
-	data.grid_status=d.Grid_status //SystemGridConnected, SystemIslandedActive, SystemTransitionToGrid
-	data.grid_services_active=d.Grid_services_active
+	data.Grid_status=d.Grid_status //SystemGridConnected, SystemIslandedActive, SystemTransitionToGrid
+	data.Grid_services_active=d.Grid_services_active
 	return
 }
 
@@ -151,41 +151,41 @@ func (EG *TeslaEnergyGateway) getMeters(data *EGPerfData) {
 		fmt.Println(fmt.Errorf("getMeters failure: %s\n",err))
 	}
 	json.Unmarshal([]byte(resp.Body()),&d)
-	data.solar_energy_imported=d.Solar.Energy_imported
-	data.solar_energy_exported=d.Solar.Energy_exported
-	data.solar_instant_power=d.Solar.Instant_power
-	data.solar_instant_apparent_power=d.Solar.Instant_apparent_power
-	data.solar_instant_reactive_power=d.Solar.Instant_reactive_power
-	data.solar_frequency=d.Solar.Frequency
-	data.solar_instant_average_voltage=d.Solar.Instant_average_voltage
-	data.solar_last_communication_time=d.Solar.Last_communication_time
+	data.Solar_energy_imported=d.Solar.Energy_imported
+	data.Solar_energy_exported=d.Solar.Energy_exported
+	data.Solar_instant_power=d.Solar.Instant_power
+	data.Solar_instant_apparent_power=d.Solar.Instant_apparent_power
+	data.Solar_instant_reactive_power=d.Solar.Instant_reactive_power
+	data.Solar_frequency=d.Solar.Frequency
+	data.Solar_instant_average_voltage=d.Solar.Instant_average_voltage
+	data.Solar_last_communication_time=d.Solar.Last_communication_time
 
-	data.grid_energy_imported=d.Site.Energy_imported
-	data.grid_energy_exported=d.Site.Energy_exported
-	data.grid_instant_power=d.Site.Instant_power
-	data.grid_instant_apparent_power=d.Site.Instant_apparent_power
-	data.grid_instant_reactive_power=d.Site.Instant_reactive_power
-	data.grid_frequency=d.Site.Frequency
-	data.grid_instant_average_voltage=d.Site.Instant_average_voltage
-	data.grid_last_communication_time=d.Site.Last_communication_time
+	data.Grid_energy_imported=d.Site.Energy_imported
+	data.Grid_energy_exported=d.Site.Energy_exported
+	data.Grid_instant_power=d.Site.Instant_power
+	data.Grid_instant_apparent_power=d.Site.Instant_apparent_power
+	data.Grid_instant_reactive_power=d.Site.Instant_reactive_power
+	data.Grid_frequency=d.Site.Frequency
+	data.Grid_instant_average_voltage=d.Site.Instant_average_voltage
+	data.Grid_last_communication_time=d.Site.Last_communication_time
 
-	data.battery_energy_imported=d.Battery.Energy_imported
-	data.battery_energy_exported=d.Battery.Energy_exported
-	data.battery_instant_power=d.Battery.Instant_power
-	data.battery_instant_apparent_power=d.Battery.Instant_apparent_power
-	data.battery_instant_reactive_power=d.Battery.Instant_reactive_power
-	data.battery_frequency=d.Battery.Frequency
-	data.battery_instant_average_voltage=d.Battery.Instant_average_voltage
-	data.battery_last_communication_time=d.Battery.Last_communication_time
+	data.Battery_energy_imported=d.Battery.Energy_imported
+	data.Battery_energy_exported=d.Battery.Energy_exported
+	data.Battery_instant_power=d.Battery.Instant_power
+	data.Battery_instant_apparent_power=d.Battery.Instant_apparent_power
+	data.Battery_instant_reactive_power=d.Battery.Instant_reactive_power
+	data.Battery_frequency=d.Battery.Frequency
+	data.Battery_instant_average_voltage=d.Battery.Instant_average_voltage
+	data.Battery_last_communication_time=d.Battery.Last_communication_time
 
-	data.house_energy_imported=d.Load.Energy_imported
-	data.house_energy_exported=d.Load.Energy_exported
-	data.house_instant_power=d.Load.Instant_power
-	data.house_instant_apparent_power=d.Load.Instant_apparent_power
-	data.house_instant_reactive_power=d.Load.Instant_reactive_power
-	data.house_frequency=d.Load.Frequency
-	data.house_instant_average_voltage=d.Load.Instant_average_voltage
-	data.house_last_communication_time=d.Load.Last_communication_time
+	data.House_energy_imported=d.Load.Energy_imported
+	data.House_energy_exported=d.Load.Energy_exported
+	data.House_instant_power=d.Load.Instant_power
+	data.House_instant_apparent_power=d.Load.Instant_apparent_power
+	data.House_instant_reactive_power=d.Load.Instant_reactive_power
+	data.House_frequency=d.Load.Frequency
+	data.House_instant_average_voltage=d.Load.Instant_average_voltage
+	data.House_last_communication_time=d.Load.Last_communication_time
 }
 
 

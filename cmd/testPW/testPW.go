@@ -30,7 +30,6 @@ func main() {
 		panic(fmt.Errorf("Fatal error in config file: %s \n", err))
 	}
 
-	dbFile := configReader.GetString("solarmon.dbFile")
 	eg.Host = configReader.GetString("powerwall.host")
 	eg.Sn = configReader.GetString("powerwall.sn")
 	eg.User = configReader.GetString("powerwall.user")
@@ -51,10 +50,14 @@ func main() {
 		} // inner for
 		if (timeout == false) && (gotEG == true) {
 			//Process the data
+			fmt.Printf("Solar output: %g\n",egData.Solar_instant_power)
+			fmt.Printf("House power: %g\n",egData.House_instant_power)
+			fmt.Printf("Battery power: %g\n",egData.Battery_instant_power)
+			fmt.Printf("Grid power: %g\n",egData.Grid_instant_power)
 		} else {
 			stopPW <- 1
 		}
-		time.Sleep(500*time.Millisecond)
+		time.Sleep(1000*time.Millisecond)
 
 	} //outer for
 
