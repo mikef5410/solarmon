@@ -290,7 +290,7 @@ func (inverter *SolarEdgeModbus) PollData(inverterChannel chan PerfData, stopCha
 			data.Event1 = inverter.GetReg("I_Event_1_Vendor").Value
 
 			inverterChannel <- data
-			return
+			//return
 
 		case <-stopChan:
 			return

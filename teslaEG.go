@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"crypto/tls"
+	"time"
 )
 
 type TeslaEnergyGateway struct {
@@ -24,6 +25,8 @@ type TeslaEnergyGateway struct {
 // Current performance data is stuffed in here
 type EGPerfData struct {
 	Grid_status string //GridStatus "SystemIsIslandedActive" or "SystemGridConnected"
+	Grid_up bool
+	Grid_last_change time.Time
 	Grid_services_active bool
 	
 	Uptime     uint64  //sitemaster
@@ -110,7 +113,7 @@ func (EG *TeslaEnergyGateway) getGridStatus(data *EGPerfData) {
 		Grid_services_active bool
 	}
 	var d GridStatus
-        url:="https://"+EG.Host+"/api/system_status/Grid_status"
+        url:="https://"+EG.Host+"/api/system_status/grid_status"
 	resp,err := resty.R().Get(url)
 	if err != nil {
 		fmt.Println(fmt.Errorf("getGridStatus failure: %s\n",err))
@@ -118,6 +121,8 @@ func (EG *TeslaEnergyGateway) getGridStatus(data *EGPerfData) {
 	json.Unmarshal([]byte(resp.Body()),&d)
 	data.Grid_status=d.Grid_status //SystemGridConnected, SystemIslandedActive, SystemTransitionToGrid
 	data.Grid_services_active=d.Grid_services_active
+	up := (0 == strings.Compare("SystemGridConnected",d.Grid_status))
+	data.Grid_up=up
 	return
 }
 
@@ -203,7 +208,6 @@ func (EG *TeslaEnergyGateway) PollData(EGChannel chan EGPerfData, stopChan chan 
 			EG.getGridStatus(&data)
 			EG.getMeters(&data)
 			EGChannel <- data
-			return
 
 		case <-stopChan:
 			return
@@ -211,3 +215,5 @@ func (EG *TeslaEnergyGateway) PollData(EGChannel chan EGPerfData, stopChan chan 
 	}
 
 }
+
+	

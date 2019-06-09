@@ -196,7 +196,7 @@ func (self *RainforestEagle200Local) PollData(gridChannel chan DataResponse, sto
 		select {
 		default:
 			gridChannel <- self.GetData()
-			return
+			//return
 		case <-stopChan:
 			return
 		}

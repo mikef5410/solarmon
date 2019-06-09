@@ -13,6 +13,7 @@ import (
 )
 
 type LiveData struct {
+	EGData             solarmon.EGPerfData
 	InverterData       solarmon.PerfData
 	GridData           solarmon.DataResponse
 	DailyEnergy        EnergyCounters
@@ -27,6 +28,8 @@ type EnergyCounters struct {
 	KWhFromGrid float64
 	GridNet     float64
 	HouseUsage  float64
+	KWhToBatt   float64
+	KWhFromBatt float64
 }
 
 func main() {
@@ -35,6 +38,9 @@ func main() {
 
 	var inverterData solarmon.PerfData
 	inverterChan := make(chan solarmon.PerfData)
+
+	var egData solarmon.EGPerfData
+	egChan := make(chan solarmon.EGPerfData)
 
 	FileWriterLiveDataChan := make(chan LiveData, 50)
 	DBWriterChan := make(chan LiveData, 50)
@@ -55,6 +61,7 @@ func main() {
 
 	var meter solarmon.RainforestEagle200Local
 	var inv solarmon.SolarEdgeModbus
+	var eg solarmon.TeslaEnergyGateway
 
 	meter.Host = configReader.GetString("rainforest.host")
 	meter.User = configReader.GetString("rainforest.cloudID")
@@ -63,6 +70,10 @@ func main() {
 
 	inv.Host = configReader.GetString("inverter.host")
 	inv.Port = uint16(configReader.GetInt("inverter.port"))
+
+	eg.Host = configReader.GetString("powerwall.host")
+	eg.Sn = configReader.GetString("powerwall.sn")
+	eg.User = configReader.GetString("powerwall.user")
 
 	//How long to sleep between polls?
 	pollms := time.Duration(configReader.GetInt("solarmon.pollInterval")) * time.Millisecond
@@ -83,32 +94,35 @@ func main() {
 	go DBWriter(database, DBWriterChan)
 
 	//Loop, polling for data and writing to our filerwriter and dbwriter channels
+	stopInv := make(chan int, 1)
+	stopMeter := make(chan int, 1)
+	stopEG := make(chan int, 1)
+
+	go inv.PollData(inverterChan, stopInv)
+	go meter.PollData(gridChan, stopMeter)
+	go eg.PollData(egChan, stopEG)
+
 	for {
-		stopInv := make(chan int, 1)
-		stopMeter := make(chan int, 1)
-
-		go inv.PollData(inverterChan, stopInv)
-		go meter.PollData(gridChan, stopMeter)
-
-		//gridData = <-gridChan
-		//inverterData = <-inverterChan
 		gotGrid := false
 		gotInv := false
+		gotEG := false
 		timeout := false
-		for ((gotGrid && gotInv) == false) && (timeout == false) {
+		for ((gotGrid && gotInv && gotEG) == false) && (timeout == false) {
 			select {
 			case gridData = <-gridChan:
 				gotGrid = true
 			case inverterData = <-inverterChan:
 				gotInv = true
+			case egData = <-egChan:
+				gotEG = true
 			case <-time.After(120 * time.Second):
 				timeout = true
 			}
 		}
 
-		if (timeout == false) && ((gotGrid && gotInv) == true) {
+		if (timeout == false) && ((gotGrid && gotInv && gotEG) == true) {
 			gridData.InstantaneousDemand = gridData.InstantaneousDemand * 1000 //Convert kW to W
-
+			dataOut.EGData = egData
 			dataOut.InverterData = inverterData
 			dataOut.GridData = gridData
 			dataOut.InverterEfficiency = 100 * inverterData.AC_Power / inverterData.DC_Power
@@ -137,6 +151,7 @@ func main() {
 			//timed out. kill our goroutines
 			stopInv <- 1
 			stopMeter <- 1
+			stopEG <- 1
 		}
 		time.Sleep(pollms)
 	}
@@ -158,6 +173,7 @@ func FileWriter(filename string, dataChan chan LiveData) {
 }
 
 func openDB(filename string) *sql.DB {
+	vers := -1
 	database, _ := sql.Open("sqlite3", filename)
 	statement, _ := database.Prepare(`CREATE TABLE IF NOT EXISTS solarPerf (id INTEGER PRIMARY KEY,
                         meter_lastContact datetime, meter_demand REAL, meter_KWHFromGrid REAL, meter_KWHToGrid REAL,
@@ -166,6 +182,84 @@ func openDB(filename string) *sql.DB {
                         inv_DC_Power REAL, inv_SinkTemp REAL, inv_Status int, inv_Event1 int, inv_Efficiency REAL,
                         House_Demand REAL, timestamp datetime )`)
 	statement.Exec()
+
+	res := database.QueryRow("PRAGMA user_version;")
+	err := res.Scan(&vers)
+	if err != nil {
+		fmt.Printf("schema get failed\n")
+	}
+	if vers == 0 { // Augment table, increase schema version to 1
+		fmt.Printf("Upgrade database to version 1\n")
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN grid_status TEXT;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN grid_up BOOLEAN;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN grid_last_change datetime;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN grid_services_active BOOLEAN;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_uptime INTEGER;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_running BOOLEAN;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_connected_to_tesla BOOLEAN;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN batt_percentage REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_solar_energy_exported REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_solar_instant_power REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_solar_apparent_power REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_solar_reactive_power REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_solar_frequency REAL;")
+		statement.Exec()
+
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_grid_energy_imported REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_grid_energy_exported REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_grid_instant_power REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_grid_apparent_power REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_grid_reactive_power REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_grid_frequency REAL;")
+		statement.Exec()
+
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_house_energy_imported REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_house_energy_exported REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_house_apparent_power REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_house_reactive_power REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_house_frequency REAL;")
+		statement.Exec()
+
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_battery_energy_imported REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_battery_energy_exported REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_battery_instant_power REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_battery_apparent_power REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_battery_reactive_power REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_battery_frequency REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_battery_instant_average_voltage REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_battery_instant_average_current REAL;")
+		statement.Exec()
+		statement, _ = database.Prepare("PRAGMA user_version=1;")
+		statement.Exec()
+	} //If schema upgrade
 	return (database)
 }
 
