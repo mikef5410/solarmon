@@ -294,8 +294,8 @@ func DBWriter(db *sql.DB, dataChan chan LiveData) {
                                     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                                                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                                                ?, ?, ?, ?, ? )`)
-	if (err != nil) {
-		fmt.Printf("Prepare error: %s", err);
+	if err != nil {
+		fmt.Printf("Prepare error: %s", err)
 	}
 
 	for {
@@ -343,24 +343,25 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 	results.SolarKWh = 0
 	results.KWhToGrid = 0
 	results.KWhFromGrid = 0
+	var lastChange string
 
 	//First try to get the first entry for today
 	res := db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy FROM solarPerf 
-                            WHERE datetime(timestamp) >= datetime('now','start of day','localtime')
+                            WHERE datetime(timestamp,'localtime') >= date('now','localtime')
                             ORDER BY timestamp LIMIT 1;`)
 
 	err := res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh)
 	if err == nil {
-		fmt.Printf("First restore\n")
+		//fmt.Printf("First restore\n")
 		results.SolarKWh = results.SolarKWh / 1000.0
 	} else {
-		fmt.Printf("First restore error: %s\n",err)
+		fmt.Printf("First restore error: %s\n", err)
 		//No entry yet for today, so take the last available
 		res = db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy FROM solarPerf 
                            ORDER BY timestamp DESC LIMIT 1`)
 		err = res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh)
 		if err == nil {
-		fmt.Printf("Second restore\n")
+			//fmt.Printf("Second restore\n")
 			results.SolarKWh = results.SolarKWh / 1000.0
 		}
 	}
@@ -368,17 +369,18 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 	//Find last grid state
 	res = db.QueryRow(`SELECT grid_last_change,grid_up FROM solarPerf 
                            ORDER BY timestamp DESC LIMIT 1;`)
-	err = res.Scan(&LastGridChange, &LastGridState)
+	err = res.Scan(&lastChange, &LastGridState)
 	if err == nil {
+		LastGridChange.UnmarshalText([]byte(lastChange))
 		return (results)
 	} else {
-		fmt.Printf("Force last grid change, %s\n",err)
-		LastGridChange=time.Now()
-		LastGridState=true
+		fmt.Printf("Force last grid change, %s\n", err)
+		LastGridChange = time.Now()
+		LastGridState = true
 	}
 
 	return (results)
-	
+
 }
 
 // Beginning of day in sqlite3:
