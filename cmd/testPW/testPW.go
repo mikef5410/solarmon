@@ -34,8 +34,8 @@ func main() {
 	eg.Sn = configReader.GetString("powerwall.sn")
 	eg.User = configReader.GetString("powerwall.user")
 	fmt.Printf("SolarW,HouseW,BattW,GridW,BattCharge,SolarF,HouseF,BattF,GridF\n")
-		stopPW := make(chan int, 1)
-		go eg.PollData(EGChan, stopPW)
+	stopPW := make(chan int, 1)
+	go eg.PollData(EGChan, stopPW)
 	for {
 		gotEG := false
 		timeout := false
@@ -56,21 +56,21 @@ func main() {
 			//	fmt.Printf("Grid is DOWN\n")
 			//}
 			fmt.Printf("%.5g,%.5g,%.5g,%.5g,%5.4g,%5.4g,%5.4g,%5.4g,%5.4g\n",
-				egData.Solar_instant_power,egData.House_instant_power,
-				egData.Battery_instant_power,egData.Grid_instant_power,
+				egData.Solar_instant_power, egData.House_instant_power,
+				egData.Battery_instant_power, egData.Grid_instant_power,
 				egData.Batt_percentage,
-				egData.Solar_frequency,egData.House_frequency,egData.Battery_frequency,
+				egData.Solar_frequency, egData.House_frequency, egData.Battery_frequency,
 				egData.Grid_frequency)
 			//fmt.Printf("Solar output: %g\n",egData.Solar_instant_power)
 			//fmt.Printf("House power: %g\n",egData.House_instant_power)
 			//fmt.Printf("Battery power: %g\n",egData.Battery_instant_power)
 			//fmt.Printf("Battery charge: %5.4g%%\n",egData.Batt_percentage)
 			//fmt.Printf("Grid power: %g\n",egData.Grid_instant_power)
-			
+
 		} else {
 			stopPW <- 1
 		}
-		time.Sleep(500*time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 
 	} //outer for
 

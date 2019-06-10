@@ -10,6 +10,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"time"
+	//"github.com/davecgh/go-spew/spew"
 )
 
 type LiveData struct {
@@ -31,6 +32,9 @@ type EnergyCounters struct {
 	KWhToBatt   float64
 	KWhFromBatt float64
 }
+
+var LastGridState bool
+var LastGridChange time.Time
 
 func main() {
 	var gridData solarmon.DataResponse
@@ -121,12 +125,17 @@ func main() {
 		}
 
 		if (timeout == false) && ((gotGrid && gotInv && gotEG) == true) {
+			if egData.Grid_up != LastGridState {
+				LastGridState = egData.Grid_up
+				LastGridChange = time.Now()
+			}
+			egData.Grid_last_change = LastGridChange
 			gridData.InstantaneousDemand = gridData.InstantaneousDemand * 1000 //Convert kW to W
 			dataOut.EGData = egData
 			dataOut.InverterData = inverterData
 			dataOut.GridData = gridData
 			dataOut.InverterEfficiency = 100 * inverterData.AC_Power / inverterData.DC_Power
-			dataOut.HousePowerUsage = inverterData.AC_Power + gridData.InstantaneousDemand
+			dataOut.HousePowerUsage = egData.House_instant_power
 			dataOut.TimeStamp = time.Now()
 
 			if time.Now().Local().Day() != dayNum { //We just rolled past midnight
@@ -210,9 +219,9 @@ func openDB(filename string) *sql.DB {
 		statement.Exec()
 		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_solar_instant_power REAL;")
 		statement.Exec()
-		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_solar_apparent_power REAL;")
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_solar_instant_apparent_power REAL;")
 		statement.Exec()
-		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_solar_reactive_power REAL;")
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_solar_instant_reactive_power REAL;")
 		statement.Exec()
 		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_solar_frequency REAL;")
 		statement.Exec()
@@ -223,20 +232,20 @@ func openDB(filename string) *sql.DB {
 		statement.Exec()
 		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_grid_instant_power REAL;")
 		statement.Exec()
-		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_grid_apparent_power REAL;")
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_grid_instant_apparent_power REAL;")
 		statement.Exec()
-		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_grid_reactive_power REAL;")
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_grid_instant_reactive_power REAL;")
 		statement.Exec()
 		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_grid_frequency REAL;")
 		statement.Exec()
 
 		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_house_energy_imported REAL;")
 		statement.Exec()
-		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_house_energy_exported REAL;")
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_house_instant_power REAL;")
 		statement.Exec()
-		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_house_apparent_power REAL;")
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_house_instant_apparent_power REAL;")
 		statement.Exec()
-		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_house_reactive_power REAL;")
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_house_instant_reactive_power REAL;")
 		statement.Exec()
 		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_house_frequency REAL;")
 		statement.Exec()
@@ -247,15 +256,15 @@ func openDB(filename string) *sql.DB {
 		statement.Exec()
 		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_battery_instant_power REAL;")
 		statement.Exec()
-		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_battery_apparent_power REAL;")
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_battery_instant_apparent_power REAL;")
 		statement.Exec()
-		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_battery_reactive_power REAL;")
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_battery_instant_reactive_power REAL;")
 		statement.Exec()
 		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_battery_frequency REAL;")
 		statement.Exec()
 		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_battery_instant_average_voltage REAL;")
 		statement.Exec()
-		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_battery_instant_average_current REAL;")
+		statement, _ = database.Prepare("ALTER TABLE solarPerf ADD COLUMN eg_battery_instant_total_current REAL;")
 		statement.Exec()
 		statement, _ = database.Prepare("PRAGMA user_version=1;")
 		statement.Exec()
@@ -264,17 +273,38 @@ func openDB(filename string) *sql.DB {
 }
 
 func DBWriter(db *sql.DB, dataChan chan LiveData) {
-	statement, _ := db.Prepare(`INSERT INTO solarPerf (meter_lastContact, meter_demand, meter_KWHFromGrid, meter_KWHToGrid,
+	statement, err := db.Prepare(`INSERT INTO solarPerf (meter_lastContact, meter_demand, meter_KWHFromGrid, meter_KWHToGrid,
                                     inv_AC_Power, inv_AC_Current, inv_AC_Voltage, inv_AC_VA, inv_AC_VAR, 
                                     inv_AC_PF, inv_AC_Freq, inv_AC_Energy, inv_DC_Voltage, inv_DC_Current,
                                     inv_DC_Power, inv_SinkTemp, inv_Status, inv_Event1, inv_Efficiency,
-                                    House_Demand, timestamp ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+                                    House_Demand, timestamp, grid_status, grid_up, grid_last_change,
+                                    grid_services_active, eg_uptime, eg_running, eg_connected_to_tesla,
+                                    batt_percentage, 
+                                    eg_solar_energy_exported, eg_solar_instant_power, eg_solar_instant_apparent_power,
+                                    eg_solar_instant_reactive_power, eg_solar_frequency,                                    
+                                    eg_grid_energy_exported, eg_grid_energy_imported, eg_grid_instant_power,
+                                    eg_grid_instant_apparent_power,
+                                    eg_grid_instant_reactive_power, eg_grid_frequency,                                    
+                                    eg_house_energy_imported, eg_house_instant_power, eg_house_instant_apparent_power,
+                                    eg_house_instant_reactive_power, eg_house_frequency,                                    
+                                    eg_battery_energy_exported, eg_battery_energy_imported, eg_battery_instant_power,
+                                    eg_battery_instant_apparent_power,
+                                    eg_battery_instant_reactive_power, eg_battery_frequency,  eg_battery_instant_average_voltage, 
+                                    eg_battery_instant_total_current )
+                                    values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                                               ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+                                               ?, ?, ?, ?, ? )`)
+	if (err != nil) {
+		fmt.Printf("Prepare error: %s", err);
+	}
 
 	for {
 		currentData := <-dataChan
 
 		timeLastContact, _ := currentData.GridData.LastContact.MarshalText()
 		timeStamp, _ := currentData.TimeStamp.MarshalText()
+		gridLastChange, _ := currentData.EGData.Grid_last_change.MarshalText()
+
 		statement.Exec(timeLastContact,
 			currentData.GridData.InstantaneousDemand, currentData.GridData.KWhFromGrid,
 			currentData.GridData.KWhToGrid, currentData.InverterData.AC_Power, currentData.InverterData.AC_Current,
@@ -283,7 +313,25 @@ func DBWriter(db *sql.DB, dataChan chan LiveData) {
 			currentData.InverterData.DC_Voltage, currentData.InverterData.DC_Current,
 			currentData.InverterData.DC_Power, currentData.InverterData.SinkTemp, int(currentData.InverterData.Status),
 			int(currentData.InverterData.Event1), currentData.InverterEfficiency, currentData.HousePowerUsage,
-			timeStamp)
+			timeStamp, currentData.EGData.Grid_status, currentData.EGData.Grid_up, gridLastChange,
+
+			currentData.EGData.Grid_services_active, currentData.EGData.Uptime, currentData.EGData.Running,
+			currentData.EGData.Connected_to_tesla, currentData.EGData.Batt_percentage, currentData.EGData.Solar_energy_exported,
+			currentData.EGData.Solar_instant_power, currentData.EGData.Solar_instant_apparent_power,
+			currentData.EGData.Solar_instant_reactive_power, currentData.EGData.Solar_frequency,
+
+			currentData.EGData.Grid_energy_exported, currentData.EGData.Grid_energy_imported,
+			currentData.EGData.Grid_instant_power, currentData.EGData.Grid_instant_apparent_power,
+			currentData.EGData.Grid_instant_reactive_power, currentData.EGData.Grid_frequency,
+
+			currentData.EGData.House_energy_imported, currentData.EGData.House_instant_power,
+			currentData.EGData.House_instant_apparent_power, currentData.EGData.House_instant_reactive_power,
+			currentData.EGData.House_frequency,
+
+			currentData.EGData.Battery_energy_exported, currentData.EGData.Battery_energy_imported,
+			currentData.EGData.Battery_instant_power, currentData.EGData.Battery_instant_apparent_power,
+			currentData.EGData.Battery_instant_reactive_power, currentData.EGData.Battery_frequency,
+			currentData.EGData.Battery_instant_average_voltage, currentData.EGData.Battery_instant_total_current)
 	}
 
 }
@@ -298,26 +346,39 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 
 	//First try to get the first entry for today
 	res := db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy FROM solarPerf 
-                            WHERE datetime(timestamp,'localtime') BETWEEN datetime('now','start of day') AND datetime('now') 
-                            ORDER BY timestamp LIMIT 1`)
+                            WHERE datetime(timestamp) >= datetime('now','start of day','localtime')
+                            ORDER BY timestamp LIMIT 1;`)
 
 	err := res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh)
 	if err == nil {
+		fmt.Printf("First restore\n")
 		results.SolarKWh = results.SolarKWh / 1000.0
-		return (results)
+	} else {
+		fmt.Printf("First restore error: %s\n",err)
+		//No entry yet for today, so take the last available
+		res = db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy FROM solarPerf 
+                           ORDER BY timestamp DESC LIMIT 1`)
+		err = res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh)
+		if err == nil {
+		fmt.Printf("Second restore\n")
+			results.SolarKWh = results.SolarKWh / 1000.0
+		}
 	}
 
-	//No entry yet for today, so take the last available
-	res = db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy FROM solarPerf 
-                           WHERE datetime(timestamp,'localtime') <= datetime('now','localtime') 
-                           ORDER BY timestamp DESC LIMIT 1`)
-	err = res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh)
+	//Find last grid state
+	res = db.QueryRow(`SELECT grid_last_change,grid_up FROM solarPerf 
+                           ORDER BY timestamp DESC LIMIT 1;`)
+	err = res.Scan(&LastGridChange, &LastGridState)
 	if err == nil {
-		results.SolarKWh = results.SolarKWh / 1000.0
 		return (results)
+	} else {
+		fmt.Printf("Force last grid change, %s\n",err)
+		LastGridChange=time.Now()
+		LastGridState=true
 	}
 
 	return (results)
+	
 }
 
 // Beginning of day in sqlite3:
