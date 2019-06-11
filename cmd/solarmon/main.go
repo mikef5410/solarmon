@@ -185,14 +185,14 @@ func main() {
 				startOfDayEnergy.SolarKWh = inverterData.AC_Energy / 1000.0
 				startOfDayEnergy.KWhToGrid = dataOut.GridData.KWhToGrid
 				startOfDayEnergy.KWhFromGrid = dataOut.GridData.KWhFromGrid
-				startOfDayEnergy.HouseUsage = dataOut.EGData.House_energy_imported
+				startOfDayEnergy.HouseUsage = dataOut.EGData.House_energy_imported / 1000.0
 			}
 
 			dataOut.DailyEnergy.SolarKWh = inverterData.AC_Energy/1000.0 - startOfDayEnergy.SolarKWh
 			dataOut.DailyEnergy.KWhToGrid = dataOut.GridData.KWhToGrid - startOfDayEnergy.KWhToGrid
 			dataOut.DailyEnergy.KWhFromGrid = dataOut.GridData.KWhFromGrid - startOfDayEnergy.KWhFromGrid
 			dataOut.DailyEnergy.GridNet = dataOut.DailyEnergy.KWhFromGrid - dataOut.DailyEnergy.KWhToGrid
-			dataOut.DailyEnergy.HouseUsage = dataOut.EGData.House_energy_imported - startOfDayEnergy.HouseUsage
+			dataOut.DailyEnergy.HouseUsage = dataOut.EGData.House_energy_imported/1000.0 - startOfDayEnergy.HouseUsage
 
 			FileWriterLiveDataChan <- dataOut
 			DBWriterChan <- dataOut
@@ -405,7 +405,7 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 		//No entry yet for today, so take the last available
 		res = db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy ,eg_house_energy_importedFROM solarPerf 
                            ORDER BY timestamp DESC LIMIT 1`)
-		err = res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh, &results.HouseUsage )
+		err = res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh, &results.HouseUsage)
 		if err == nil {
 			//fmt.Printf("Second restore\n")
 			results.SolarKWh = results.SolarKWh / 1000.0
