@@ -11,6 +11,8 @@ import (
 	"io/ioutil"
 	"time"
 	//"github.com/davecgh/go-spew/spew"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+	//"errors"
 )
 
 type LiveData struct {
@@ -33,22 +35,20 @@ type EnergyCounters struct {
 	KWhFromBatt float64
 }
 
+type MQTTServer struct {
+	Url          string
+	ClientID     string
+	User         string
+	Pass         string
+	Prefix       string
+	ClientHandle mqtt.Client
+}
+
 var LastGridState bool
 var LastGridChange time.Time
 
 func main() {
-	var gridData solarmon.DataResponse
-	gridChan := make(chan solarmon.DataResponse)
-
-	var inverterData solarmon.PerfData
-	inverterChan := make(chan solarmon.PerfData)
-
-	var egData solarmon.EGPerfData
-	egChan := make(chan solarmon.EGPerfData)
-
-	FileWriterLiveDataChan := make(chan LiveData, 50)
-	DBWriterChan := make(chan LiveData, 50)
-
+	//Find config file and read it
 	configReader := viper.New()
 	configReader.SetConfigName("solarmon")
 	configReader.AddConfigPath("/etc")
@@ -66,6 +66,7 @@ func main() {
 	var meter solarmon.RainforestEagle200Local
 	var inv solarmon.SolarEdgeModbus
 	var eg solarmon.TeslaEnergyGateway
+	var mqtts MQTTServer
 
 	meter.Host = configReader.GetString("rainforest.host")
 	meter.User = configReader.GetString("rainforest.cloudID")
@@ -79,23 +80,49 @@ func main() {
 	eg.Sn = configReader.GetString("powerwall.sn")
 	eg.User = configReader.GetString("powerwall.user")
 
+	mqtts.Url = configReader.GetString("mqtt.url")
+	mqtts.ClientID = configReader.GetString("mqtt.clientiD")
+	mqtts.User = configReader.GetString("mqtt.user")
+	mqtts.Pass = configReader.GetString("mqtt.pass")
+	mqtts.Prefix = configReader.GetString("mqtt.prefix")
+	mqtts.ClientHandle = nil
+
 	//How long to sleep between polls?
 	pollms := time.Duration(configReader.GetInt("solarmon.pollInterval")) * time.Millisecond
 
 	//Where does the live data file live?
 	liveFilename := configReader.GetString("solarmon.liveDataFile")
 
-	var dataOut LiveData
-
+	//Get our Database connection
 	database := openDB(dbFile)
-	startOfDayEnergy := initializeSOD(database)
-	dayNum := time.Now().Local().Day() //Use Day-Of-Month to detect when we roll past midnight
 
 	//Get our start-of-day kWh counters
+	startOfDayEnergy := initializeSOD(database)
+
+	dayNum := time.Now().Local().Day() //Use Day-Of-Month to detect when we roll past midnight
+
+	//Make our inter-thread comm channels
+	var gridData solarmon.DataResponse
+	gridChan := make(chan solarmon.DataResponse)
+
+	var inverterData solarmon.PerfData
+	inverterChan := make(chan solarmon.PerfData)
+
+	var egData solarmon.EGPerfData
+	egChan := make(chan solarmon.EGPerfData)
+
+	FileWriterLiveDataChan := make(chan LiveData, 20)
+
+	DBWriterChan := make(chan LiveData, 20)
+
+	MQTTChan := make(chan LiveData, 20)
+
+	var dataOut LiveData
 
 	//Launch our live data file writer, and database logger threads
 	go FileWriter(liveFilename, FileWriterLiveDataChan)
 	go DBWriter(database, DBWriterChan)
+	go mqtts.MqttPublisher(MQTTChan)
 
 	//Loop, polling for data and writing to our filerwriter and dbwriter channels
 	stopInv := make(chan int, 1)
@@ -154,6 +181,7 @@ func main() {
 
 			FileWriterLiveDataChan <- dataOut
 			DBWriterChan <- dataOut
+			MQTTChan <- dataOut
 			//fmt.Printf("Grid Demand: %.6g W, Solar Generation: %.6g W, House Demand: %.6gW\n",
 			//	gridData.InstantaneousDemand, inverterData.AC_Power, dataOut.HousePowerUsage)
 		} else {
@@ -173,8 +201,9 @@ func FileWriter(filename string, dataChan chan LiveData) {
 		dataOut := <-dataChan
 		serialized, err := yaml.Marshal(dataOut)
 		if err != nil {
-			fmt.Errorf("YAML Marshalling error: %s\n", err)
+			_ = fmt.Errorf("YAML Marshalling error: %s\n", err)
 		} else {
+
 			ioutil.WriteFile(filename, serialized, 0644)
 		}
 	}
@@ -316,7 +345,8 @@ func DBWriter(db *sql.DB, dataChan chan LiveData) {
 			timeStamp, currentData.EGData.Grid_status, currentData.EGData.Grid_up, gridLastChange,
 
 			currentData.EGData.Grid_services_active, currentData.EGData.Uptime, currentData.EGData.Running,
-			currentData.EGData.Connected_to_tesla, currentData.EGData.Batt_percentage, currentData.EGData.Solar_energy_exported,
+			currentData.EGData.Connected_to_tesla, currentData.EGData.Batt_percentage,
+			currentData.EGData.Solar_energy_exported,
 			currentData.EGData.Solar_instant_power, currentData.EGData.Solar_instant_apparent_power,
 			currentData.EGData.Solar_instant_reactive_power, currentData.EGData.Solar_frequency,
 
@@ -385,3 +415,88 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 
 // Beginning of day in sqlite3:
 //SELECT * FROM statistics WHERE date(date) BETWEEN date(datetime('now', 'start of day')) AND date(datetime('now')) ORDER BY date LIMIT 1;
+
+func (server *MQTTServer) connect() {
+	opts := mqtt.NewClientOptions()
+	opts.AddBroker(server.Url)
+	opts.SetUsername(server.User)
+	opts.SetPassword(server.Pass)
+	opts.SetClientID(server.ClientID)
+
+	server.ClientHandle = mqtt.NewClient(opts)
+	ConnToken := server.ClientHandle.Connect()
+	for !ConnToken.WaitTimeout(5 * time.Second) {
+	}
+	if err := ConnToken.Error(); err != nil {
+		fmt.Printf("MQTT Connection problem: %s\n", err)
+		//log.Fatal(err)
+	}
+}
+
+func (server *MQTTServer) publish(topic string, value string, retain bool, synchronous bool) error {
+	fullTopic := server.Prefix + "/" + topic
+	token := server.ClientHandle.Publish(fullTopic, 0, retain, value)
+	if err := token.Error(); err != nil {
+		fmt.Printf("Publish error: %s\n", err)
+		return (err)
+	}
+
+	if synchronous {
+		if token.WaitTimeout(5 * time.Second) {
+			//OK
+			return (nil)
+		} else {
+			return (fmt.Errorf("Publish timed out"))
+		}
+	}
+	return (nil)
+}
+
+func (server *MQTTServer) MqttPublisher(dataChan chan LiveData) {
+	for {
+		currentData := <-dataChan
+
+		//timeLastContact, _ := currentData.GridData.LastContact.MarshalText()
+		timeStamp, _ := currentData.TimeStamp.MarshalText()
+		gridLastChange, _ := currentData.EGData.Grid_last_change.MarshalText()
+
+		battPower := currentData.EGData.Battery_instant_power
+		battState := "STANDBY"
+		if battPower < -20 {
+			battState = "CHARGE"
+		}
+		if battPower > 20 {
+			battState = "DISCHARGE"
+			if currentData.EGData.Grid_up {
+				battState = "VOLUNTARY_DISCHARGE"
+			}
+		}
+
+		retain := true
+		async := false
+		sync := true
+
+		_ = server.publish("grid/up", fmt.Sprintf("%t", currentData.EGData.Grid_up), retain, async)
+		_ = server.publish("battery/status", battState, retain, async)
+		_ = server.publish("battery/soe", fmt.Sprintf("%5.4g", currentData.EGData.Batt_percentage), retain, async)
+		_ = server.publish("grid/status", currentData.EGData.Grid_status, retain, async)
+		_ = server.publish("eg/uptime", fmt.Sprintf("%d", currentData.EGData.Uptime), retain, async)
+		_ = server.publish("eg/running", fmt.Sprintf("%t", currentData.EGData.Running), retain, async)
+		_ = server.publish("eg/timestamp", string(timeStamp), retain, async)
+		_ = server.publish("grid/gridLastChange", string(gridLastChange), retain, async)
+		_ = server.publish("grid/power", fmt.Sprintf("%.6g", currentData.GridData.InstantaneousDemand), retain, async)
+		_ = server.publish("grid/energyToGridK", fmt.Sprintf("%g", currentData.GridData.KWhToGrid), retain, async)
+		_ = server.publish("grid/energyFromGridK", fmt.Sprintf("%g", currentData.GridData.KWhFromGrid), retain, async)
+		_ = server.publish("solar/power", fmt.Sprintf("%g", currentData.InverterData.AC_Power), retain, async)
+		_ = server.publish("solar/frequency", fmt.Sprintf("%g", currentData.EGData.Solar_frequency), retain, async)
+		_ = server.publish("solar/temp", fmt.Sprintf("%g", currentData.InverterData.SinkTemp), retain, async)
+		_ = server.publish("solar/efficiency", fmt.Sprintf("%g", currentData.InverterEfficiency), retain, async)
+
+		serialized, err := yaml.Marshal(currentData)
+		if err != nil {
+			_ = fmt.Errorf("YAML Marshalling error: %s\n", err)
+		} else {
+			_ = server.publish("solarmonData", string(serialized), retain, sync)
+		}
+	}
+}
