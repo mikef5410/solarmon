@@ -258,9 +258,9 @@
           //            alert(response);
           //            console.log(response);
           //            console.log(response.griddata.instantaneousdemand)
-          gridPower.setValueAnimated(response.griddata.instantaneousdemand);
+          gridPower.setValueAnimated(response.egdata.grid_instant_power);
           housePower.setValueAnimated(response.egdata.house_instant_power);
-          solarGeneration.setValueAnimated(response.inverterdata.ac_power);
+          solarGeneration.setValueAnimated(response.egdata.solar_instant_power);
           sinkTemp.setValueAnimated(response.inverterdata.sinktemp);
           solarEnergy.setValue(response.dailyenergy.solarkwh);
           houseEnergy.setValue(response.dailyenergy.houseusage);
