@@ -169,7 +169,7 @@ func main() {
 					dataOut.BattState = "VOLUNTARY_DISCHARGE"
 				}
 			}
-			
+
 			egData.Grid_last_change = LastGridChange
 			gridData.InstantaneousDemand = gridData.InstantaneousDemand * 1000 //Convert kW to W
 			dataOut.EGData = egData
@@ -436,6 +436,10 @@ func (server *MQTTServer) connect() {
 	opts.SetUsername(server.User)
 	opts.SetPassword(server.Pass)
 	opts.SetClientID(server.ClientID)
+	opts.SetKeepAlive(10)
+	opts.SetMaxReconnectInterval(30)
+	opts.SetWill(server.Prefix+"/"+"solarmon", "OFFLINE", 0, true)
+	opts.SetAutoReconnect(true)
 
 	server.ClientHandle = mqtt.NewClient(opts)
 	ConnToken := server.ClientHandle.Connect()
@@ -479,6 +483,7 @@ func (server *MQTTServer) MqttPublisher(dataChan chan LiveData) {
 		async := false
 		sync := true
 
+		_ = server.publish("solarmon", "ONLINE", retain, async)
 		_ = server.publish("grid/up", fmt.Sprintf("%t", currentData.EGData.Grid_up), retain, async)
 		_ = server.publish("battery/status", currentData.BattState, retain, async)
 		_ = server.publish("battery/soe", fmt.Sprintf("%5.4g", currentData.EGData.Batt_percentage), retain, async)
