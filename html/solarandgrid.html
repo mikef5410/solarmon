@@ -24,7 +24,9 @@
      </td></tr>
 
      <tr><td width="100%">
-     <center><canvas id="CanvasSinkTemp"></canvas></center>
+     <canvas id="CanvasBattPower", width="33%"></canvas>
+     <canvas id="CanvasSinkTemp", width="33%"></canvas>
+     <canvas id="CanvasBattState", width="33%"></canvas>         
      </td></tr>
 </tbody>
 </table> 
@@ -65,6 +67,9 @@
       var sectionsGridPower = [ steelseries.Section(-7000,0, 'rgba(0, 220, 0, 0.3)'),
                                 steelseries.Section(0,10000, 'rgba(220,0,0,0.3)') ];
       var areaGridPower = [steelseries.Section(1000,10000, 'rgba(220,0,0,0.3)')];
+
+      var sectionsBattPower = [ steelseries.Section(-8000,-20, 'rgba(0, 220, 0, 0.3)'),
+                                steelseries.Section(20,8000, 'rgba(220, 0, 0, 0.3)' ) ];
       
       var browserWidth = getWidth();
       var gaugeSize = Math.floor(0.95*(browserWidth/3.0)); //Scale our guages to the available space
@@ -110,6 +115,22 @@
           threshold: 7000,
       });
       
+        
+      battPower = new steelseries.Radial('CanvasBattPower', {
+          gaugeType: steelseries.GaugeType.TYPE4,
+          size: gaugeSize,
+          minValue: -8000,
+          maxValue: 8000,
+          titleString: 'Battery Power',
+          section: sectionsBattPower,
+          unitString: 'W',
+          lcdVisible: true,
+          userLedBlinking: false,
+          pointerType: steelseries.PointerType.TYPE15,
+          thresholdVisible: true,
+          threshold: 20,
+      });
+      
       
       sinkTemp = new steelseries.Linear('CanvasSinkTemp', {
           gaugeType: steelseries.GaugeType.TYPE2,
@@ -122,7 +143,22 @@
           minValue: -20,
           maxValue: 120,
       });
+       
+     battState = new steelseries.Radial('CanvasBattState', {
+          gaugeType: steelseries.GaugeType.TYPE4,
+          size: gaugeSize,
+          minValue: 0,
+          maxValue: 100,
+          titleString: 'Battery Charge Level',
+          unitString: '%',
+          lcdVisible: true,
+          userLedBlinking: false,
+          pointerType: steelseries.PointerType.TYPE15,
+          thresholdVisible: false,
+          threshold: 20,
+      });
       
+       
       solarEnergy = new steelseries.DisplaySingle('CanvasSolarEnergy', {
           width: gaugeSize,
           height: Math.floor(gaugeSize/4),
@@ -222,12 +258,14 @@
           //            console.log(response);
           //            console.log(response.griddata.instantaneousdemand)
           gridPower.setValueAnimated(response.griddata.instantaneousdemand);
-          housePower.setValueAnimated(response.housepowerusage);
+          housePower.setValueAnimated(response.egdata.house_instant_power);
           solarGeneration.setValueAnimated(response.inverterdata.ac_power);
           sinkTemp.setValueAnimated(response.inverterdata.sinktemp);
           solarEnergy.setValue(response.dailyenergy.solarkwh);
           houseEnergy.setValue(response.dailyenergy.houseusage);
           gridEnergy.setValue(response.dailyenergy.gridnet);
+          battState.setValue(response.egdata.batt_percentage);
+          battPower.setValue(response.egdata.battery_instant_power);
           
       }
   }
