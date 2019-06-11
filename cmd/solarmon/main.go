@@ -185,13 +185,14 @@ func main() {
 				startOfDayEnergy.SolarKWh = inverterData.AC_Energy / 1000.0
 				startOfDayEnergy.KWhToGrid = dataOut.GridData.KWhToGrid
 				startOfDayEnergy.KWhFromGrid = dataOut.GridData.KWhFromGrid
+				startOfDayEnergy.HouseUsage = dataOut.EGData.House_energy_imported
 			}
 
 			dataOut.DailyEnergy.SolarKWh = inverterData.AC_Energy/1000.0 - startOfDayEnergy.SolarKWh
 			dataOut.DailyEnergy.KWhToGrid = dataOut.GridData.KWhToGrid - startOfDayEnergy.KWhToGrid
 			dataOut.DailyEnergy.KWhFromGrid = dataOut.GridData.KWhFromGrid - startOfDayEnergy.KWhFromGrid
 			dataOut.DailyEnergy.GridNet = dataOut.DailyEnergy.KWhFromGrid - dataOut.DailyEnergy.KWhToGrid
-			dataOut.DailyEnergy.HouseUsage = dataOut.DailyEnergy.GridNet + dataOut.DailyEnergy.SolarKWh
+			dataOut.DailyEnergy.HouseUsage = dataOut.EGData.House_energy_imported - startOfDayEnergy.HouseUsage
 
 			FileWriterLiveDataChan <- dataOut
 			DBWriterChan <- dataOut
@@ -387,23 +388,24 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 	results.SolarKWh = 0
 	results.KWhToGrid = 0
 	results.KWhFromGrid = 0
+	results.HouseUsage = 0
 	var lastChange string
 
 	//First try to get the first entry for today
-	res := db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy FROM solarPerf 
+	res := db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy,eg_house_energy_imported FROM solarPerf 
                             WHERE datetime(timestamp,'localtime') >= date('now','localtime')
                             ORDER BY timestamp LIMIT 1;`)
 
-	err := res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh)
+	err := res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh, &results.HouseUsage)
 	if err == nil {
 		//fmt.Printf("First restore\n")
 		results.SolarKWh = results.SolarKWh / 1000.0
 	} else {
 		fmt.Printf("First restore error: %s\n", err)
 		//No entry yet for today, so take the last available
-		res = db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy FROM solarPerf 
+		res = db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy ,eg_house_energy_importedFROM solarPerf 
                            ORDER BY timestamp DESC LIMIT 1`)
-		err = res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh)
+		err = res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh, &results.HouseUsage )
 		if err == nil {
 			//fmt.Printf("Second restore\n")
 			results.SolarKWh = results.SolarKWh / 1000.0
