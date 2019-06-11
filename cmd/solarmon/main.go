@@ -23,6 +23,7 @@ type LiveData struct {
 	InverterEfficiency float64
 	HousePowerUsage    float64
 	TimeStamp          time.Time
+	BattState          string
 }
 
 type EnergyCounters struct {
@@ -156,6 +157,19 @@ func main() {
 				LastGridState = egData.Grid_up
 				LastGridChange = time.Now()
 			}
+
+			battPower := dataOut.EGData.Battery_instant_power
+			dataOut.BattState = "STANDBY"
+			if battPower < -20 {
+				dataOut.BattState = "CHARGE"
+			}
+			if battPower > 20 {
+				dataOut.BattState = "DISCHARGE"
+				if dataOut.EGData.Grid_up {
+					dataOut.BattState = "VOLUNTARY_DISCHARGE"
+				}
+			}
+			
 			egData.Grid_last_change = LastGridChange
 			gridData.InstantaneousDemand = gridData.InstantaneousDemand * 1000 //Convert kW to W
 			dataOut.EGData = egData
@@ -453,6 +467,7 @@ func (server *MQTTServer) publish(topic string, value string, retain bool, synch
 }
 
 func (server *MQTTServer) MqttPublisher(dataChan chan LiveData) {
+	server.connect()
 	for {
 		currentData := <-dataChan
 
@@ -460,24 +475,12 @@ func (server *MQTTServer) MqttPublisher(dataChan chan LiveData) {
 		timeStamp, _ := currentData.TimeStamp.MarshalText()
 		gridLastChange, _ := currentData.EGData.Grid_last_change.MarshalText()
 
-		battPower := currentData.EGData.Battery_instant_power
-		battState := "STANDBY"
-		if battPower < -20 {
-			battState = "CHARGE"
-		}
-		if battPower > 20 {
-			battState = "DISCHARGE"
-			if currentData.EGData.Grid_up {
-				battState = "VOLUNTARY_DISCHARGE"
-			}
-		}
-
 		retain := true
 		async := false
 		sync := true
 
 		_ = server.publish("grid/up", fmt.Sprintf("%t", currentData.EGData.Grid_up), retain, async)
-		_ = server.publish("battery/status", battState, retain, async)
+		_ = server.publish("battery/status", currentData.BattState, retain, async)
 		_ = server.publish("battery/soe", fmt.Sprintf("%5.4g", currentData.EGData.Batt_percentage), retain, async)
 		_ = server.publish("grid/status", currentData.EGData.Grid_status, retain, async)
 		_ = server.publish("eg/uptime", fmt.Sprintf("%d", currentData.EGData.Uptime), retain, async)
