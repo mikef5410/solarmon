@@ -403,7 +403,7 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 	} else {
 		fmt.Printf("First restore error: %s\n", err)
 		//No entry yet for today, so take the last available
-		res = db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy ,eg_house_energy_importedFROM solarPerf 
+		res = db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy ,eg_house_energy_imported FROM solarPerf 
                            ORDER BY timestamp DESC LIMIT 1`)
 		err = res.Scan(&results.KWhFromGrid, &results.KWhToGrid, &results.SolarKWh, &results.HouseUsage)
 		if err == nil {
