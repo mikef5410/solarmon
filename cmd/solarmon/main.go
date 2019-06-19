@@ -130,6 +130,7 @@ func main() {
 	stopMeter := make(chan int, 1)
 	stopEG := make(chan int, 1)
 
+RETRY:
 	go inv.PollData(inverterChan, stopInv)
 	go meter.PollData(gridChan, stopMeter)
 	go eg.PollData(egChan, stopEG)
@@ -204,9 +205,12 @@ func main() {
 			stopInv <- 1
 			stopMeter <- 1
 			stopEG <- 1
+			break
 		}
 		time.Sleep(pollms)
 	}
+	time.Sleep(10*time.Second)
+	goto RETRY
 }
 
 //Write the LiveData file for web use
