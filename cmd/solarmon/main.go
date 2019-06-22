@@ -10,6 +10,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"time"
+	"os"
 	//"github.com/davecgh/go-spew/spew"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	//"errors"
@@ -129,7 +130,8 @@ func main() {
 	stopInv := make(chan int, 1)
 	stopMeter := make(chan int, 1)
 	stopEG := make(chan int, 1)
-
+	retryCount := 5
+        
 RETRY:
 	go inv.PollData(inverterChan, stopInv)
 	go meter.PollData(gridChan, stopMeter)
@@ -210,7 +212,13 @@ RETRY:
 		time.Sleep(pollms)
 	}
 	time.Sleep(10*time.Second)
-	goto RETRY
+	retryCount = retryCount - 1
+	fmt.Printf("Reading failure. Retry count: %d\n",retryCount)
+	if (retryCount > 0) {
+		goto RETRY
+	} else {
+		os.Exit(1)
+	}
 }
 
 //Write the LiveData file for web use
@@ -404,6 +412,7 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 	if err == nil {
 		//fmt.Printf("First restore\n")
 		results.SolarKWh = results.SolarKWh / 1000.0
+		results.HouseUsage = results.HouseUsage / 1000.0
 	} else {
 		fmt.Printf("First restore error: %s\n", err)
 		//No entry yet for today, so take the last available
@@ -413,6 +422,7 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 		if err == nil {
 			//fmt.Printf("Second restore\n")
 			results.SolarKWh = results.SolarKWh / 1000.0
+			results.HouseUsage = results.HouseUsage / 1000.0
 		}
 	}
 

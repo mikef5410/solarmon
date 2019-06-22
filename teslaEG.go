@@ -78,10 +78,17 @@ func (EG *TeslaEnergyGateway) getSOE(data *EGPerfData) {
 		Percentage float64
 	}
 	var d SOEdata
+	var resp *resty.Response
+	var err error
 	url := "https://" + EG.Host + "/api/system_status/soe"
-	resp, err := resty.R().Get(url)
-	if err != nil {
-		fmt.Println(fmt.Errorf("getSOE failure: %s\n", err))
+	for {
+		resp, err = resty.R().Get(url)
+		if err == nil {
+			break
+		} else {
+			fmt.Println(fmt.Errorf("getSOE failure: %s\n", err))
+			time.Sleep(10*time.Second)
+		}
 	}
 	json.Unmarshal([]byte(resp.Body()), &d)
 	data.Batt_percentage = d.Percentage
@@ -94,12 +101,20 @@ func (EG *TeslaEnergyGateway) getSiteMaster(data *EGPerfData) {
 		Uptime             string
 		Connected_to_tesla bool
 	}
+	var resp *resty.Response
+	var err error
 	var d SiteMasterData
 	url := "https://" + EG.Host + "/api/sitemaster"
-	resp, err := resty.R().Get(url)
-	if err != nil {
-		fmt.Println(fmt.Errorf("getSiteMaster failure: %s\n", err))
+	for {
+		resp, err = resty.R().Get(url)
+		if (err == nil) {
+			break
+		} else {
+			fmt.Println(fmt.Errorf("getSiteMaster failure: %s\n", err))
+			time.Sleep(10*time.Second)
+		}
 	}
+	
 	json.Unmarshal([]byte(resp.Body()), &d)
 
 	data.Uptime, err = strconv.Atoi(strings.TrimRight(d.Uptime, "s,"))
@@ -118,10 +133,18 @@ func (EG *TeslaEnergyGateway) getGridStatus(data *EGPerfData) {
 		Grid_services_active bool
 	}
 	var d GridStatus
+	var resp *resty.Response
+	var err error
 	url := "https://" + EG.Host + "/api/system_status/grid_status"
-	resp, err := resty.R().Get(url)
-	if err != nil {
-		fmt.Println(fmt.Errorf("getGridStatus failure: %s\n", err))
+	for {
+		resp, err = resty.R().Get(url)
+		if err == nil {
+			break
+		} else {
+			fmt.Println(fmt.Errorf("getGridStatus failure: %s\n", err))
+			time.Sleep(10*time.Second)
+			
+		}
 	}
 	json.Unmarshal([]byte(resp.Body()), &d)
 	data.Grid_status = d.Grid_status //SystemGridConnected, SystemIslandedActive, SystemTransitionToGrid
@@ -155,10 +178,17 @@ func (EG *TeslaEnergyGateway) getMeters(data *EGPerfData) {
 	}
 
 	var d meterAggregate
+	var resp *resty.Response
+	var err error
 	url := "https://" + EG.Host + "/api/meters/aggregates"
-	resp, err := resty.R().Get(url)
-	if err != nil {
-		fmt.Println(fmt.Errorf("getMeters failure: %s\n", err))
+	for {
+		resp, err = resty.R().Get(url)
+		if err == nil {
+			break
+		} else {
+			fmt.Println(fmt.Errorf("getMeters failure: %s\n", err))
+			time.Sleep(10*time.Second)
+		}
 	}
 	json.Unmarshal([]byte(resp.Body()), &d)
 	data.Solar_energy_imported = d.Solar.Energy_imported
