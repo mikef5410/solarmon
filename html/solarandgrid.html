@@ -10,25 +10,29 @@
 <body onload="init();" style="background-color:#848484">
 <center><H2>Current Solar and Grid</H2></center>
 <div id="Gauges">
-<table><tbody>
-     <tr><td width="100%">
-     <canvas id="CanvasHousePower" width="33%" ></canvas>
-     <canvas id="CanvasSolarGeneration" width="33%" ></canvas>
-     <canvas id="CanvasGridUsage" width="33%" ></canvas>
-     </td></tr>
+<table>
+     <tr width=100%>
+     <td width=33%><canvas id="CanvasHousePower"  ></canvas></td>
+     <td width=33%><canvas id="CanvasSolarGeneration" ></canvas></td>
+     <td width=33%><canvas id="CanvasGridUsage"  ></canvas></td>
+     </tr>
 
-     <tr><td width="100%">
-     <canvas id="CanvasHouseEnergy", width="26%"></canvas>
-     <canvas id="CanvasSolarEnergy", width="26%"></canvas>
-     <canvas id="CanvasGridEnergy", width="26%"></canvas>
-     </td></tr>
+     <tr width=100%>
+      <td width=33%><canvas id="CanvasHouseEnergy" width=26%></canvas></td>
+      <td width=33%><canvas id="CanvasSolarEnergy" width=26%></canvas></td>
+      <td width=33%><canvas id="CanvasGridEnergy" width=26%></canvas></td>
+     </tr>
 
-     <tr><td width="100%">
-     <canvas id="CanvasBattPower", width="33%"></canvas>
-     <canvas id="CanvasSinkTemp", width="33%"></canvas>
-     <canvas id="CanvasBattState", width="33%"></canvas>         
-     </td></tr>
-</tbody>
+     <tr >
+     <td width=33%><canvas id="CanvasBattPower"></canvas></td>
+     <td width=33%><canvas id="CanvasBattState"></canvas></td>         
+     <td width=33%><table>
+           <tr ><td align=right><canvas id="CanvasGridLED" width=50%></canvas></td><td align=Left id="GridText"></td></tr>
+           <tr ><td align=right><canvas id="CanvasBattLED" width=50%></canvas></td><td align=Left id="BattText"></td></tr>
+           <tr ><td align=right><canvas id="CanvasPWLED" width=50%></canvas></td><td align=Left id="PWText"></td></tr>
+           <tr ><td colspan=2><canvas id="CanvasSinkTemp" ></canvas></td></tr>
+           </table></td>
+     </tr>
 </table> 
 </div>
 
@@ -45,6 +49,9 @@
   var solarEnergy;
   var houseEnergy;
   var gridEnergy;
+  var gridStateLED;
+  var battStateLED;
+  var pwStateLED;
   var loop = 1;
   var resizing = false;
   
@@ -73,6 +80,7 @@
       
       var browserWidth = getWidth();
       var gaugeSize = Math.floor(0.95*(browserWidth/3.0)); //Scale our guages to the available space
+      var ledSize = Math.floor(0.95 * 0.025 * browserWidth);
       
       gridPower = new steelseries.Radial('CanvasGridUsage', {
           gaugeType: steelseries.GaugeType.TYPE4,
@@ -187,6 +195,33 @@
           headerStringVisible: true,
       });
 
+      gridStateLED = new steelseries.Led('CanvasGridLED', {
+          ledColor: steelseries.LedColor.GREEN_LED,
+          width: ledSize,
+          height: ledSize,
+      });
+      gridStateLED.setLedOnOff(false);
+      document.getElementById("GridText").innerHTML = "<h1><B>GRID</B></h1>";
+
+      battStateLED = new steelseries.Led('CanvasBattLED', {
+          ledColor: steelseries.LedColor.GREEN_LED,
+          width: ledSize,
+          height: ledSize,
+      });
+      battStateLED.setLedOnOff(false);
+      document.getElementById("BattText").innerHTML = "<h1><B>BATT</B></h1>";
+
+
+      pwStateLED = new steelseries.Led('CanvasPWLED', {
+          ledColor: steelseries.LedColor.GREEN_LED,
+          width: ledSize,
+          height: ledSize,
+      });
+      pwStateLED.setLedOnOff(false);
+      document.getElementById("PWText").innerHTML = "<h1><B>Powerwall</B></h1>";
+
+
+
       window.addEventListener('resize', function(event){
           handleResize(event);
       });
@@ -267,6 +302,58 @@
           gridEnergy.setValue(response.dailyenergy.gridnet);
           battState.setValue(response.egdata.batt_percentage);
           battPower.setValue(response.egdata.battery_instant_power);
+
+          if (response.egdata.grid_status == "SystemGridConnected") {
+              gridStateLED.setLedOnOff(true);
+              document.getElementById("GridText").innerHTML = "<h1><B>GRID UP</B></h1>";
+              gridStateLED.setLedColor(steelseries.LedColor.GREEN_LED);
+          }
+          if (response.egdata.grid_status == "") {SystemIsIslandedActive
+              gridStateLED.setLedOnOff(true);
+              document.getElementById("GridText").innerHTML = "<h1><B>GRID DOWN</B></h1>";
+              gridStateLED.setLedColor(steelseries.LedColor.RED_LED);
+          }
+          if (response.egdata.grid_status == "SystemTransitionToGrid") {
+              gridStateLED.setLedOnOff(true);
+              document.getElementById("GridText").innerHTML = "<h1><B>GRID SYNCRONIZING</B></h1>";
+              gridStateLED.setLedColor(steelseries.LedColor.YELLOW_LED);
+          }
+
+          if (response.battstate == "STANDBY") {
+              battStateLED.setLedOnOff(false);
+              document.getElementById("BattText").innerHTML = "<h1><B>BATTERY STANDBY</B></h1>";
+              battStateLED.setLedColor(steelseries.LedColor.GREEN_LED);
+          }
+
+          if (response.battstate == "CHARGE") {
+              battStateLED.setLedOnOff(true);
+              document.getElementById("BattText").innerHTML = "<h1><B>BATTERY CHARGE</B></h1>";
+              battStateLED.setLedColor(steelseries.LedColor.GREEN_LED);
+          }
+
+          if (response.battstate == "DISCHARGE") {
+              battStateLED.setLedOnOff(true);
+              document.getElementById("BattText").innerHTML = "<h1><B>BATTERY DISCHARGE</B></h1>";
+              battStateLED.setLedColor(steelseries.LedColor.RED_LED);
+          }
+
+          if (response.battstate == "VOLUNTARY_DISCHARGE") {
+              battStateLED.setLedOnOff(false);
+              document.getElementById("BattText").innerHTML = "<h1><B>BATTERY VOLUNTARY DISCHARGE</B></h1>";
+              battStateLED.setLedColor(steelseries.LedColor.YELLOW_LED);
+          }
+
+          if (response.egdata.running == true) {
+              pwStateLED.setLedOnOff(true);
+              document.getElementById("PWText").innerHTML = "<h1><B>POWERWALL RUNNING</B></h1>";
+              pwStateLED.setLedColor(steelseries.LedColor.GREEN_LED);
+          }
+
+          if (response.egdata.running == false) {
+              pwStateLED.setLedOnOff(true);
+              document.getElementById("PWText").innerHTML = "<h1><B>POWERWALL STOPPED</B></h1>";
+              pwStateLED.setLedColor(steelseries.LedColor.RED_LED);
+          }
           
       }
   }
