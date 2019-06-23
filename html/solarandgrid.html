@@ -5,10 +5,13 @@
 <title>Solar and Grid Usage</title>
     <meta charset="utf-8"/>
 
+    <style>
+      body { font-family: Sans-Serif; }
+    </style>
 </head>
  
 <body onload="init();" style="background-color:#848484">
-<center><H2>Current Solar and Grid</H2></center>
+<center><H1>Current Solar and Grid</H1></center>
 <div id="Gauges">
 <table>
      <tr width=100%>
@@ -201,7 +204,7 @@
           height: ledSize,
       });
       gridStateLED.setLedOnOff(false);
-      document.getElementById("GridText").innerHTML = "<h1><B>GRID</B></h1>";
+      document.getElementById("GridText").innerHTML = "<h2><B>GRID</B></h2>";
 
       battStateLED = new steelseries.Led('CanvasBattLED', {
           ledColor: steelseries.LedColor.GREEN_LED,
@@ -209,7 +212,7 @@
           height: ledSize,
       });
       battStateLED.setLedOnOff(false);
-      document.getElementById("BattText").innerHTML = "<h1><B>BATT</B></h1>";
+      document.getElementById("BattText").innerHTML = "<h2><B>BATT</B></h2>";
 
 
       pwStateLED = new steelseries.Led('CanvasPWLED', {
@@ -218,7 +221,7 @@
           height: ledSize,
       });
       pwStateLED.setLedOnOff(false);
-      document.getElementById("PWText").innerHTML = "<h1><B>Powerwall</B></h1>";
+      document.getElementById("PWText").innerHTML = "<h2><B>Powerwall</B></h2>";
 
 
 
@@ -305,53 +308,53 @@
 
           if (response.egdata.grid_status == "SystemGridConnected") {
               gridStateLED.setLedOnOff(true);
-              document.getElementById("GridText").innerHTML = "<h1><B>GRID UP</B></h1>";
+              document.getElementById("GridText").innerHTML = "<h2><B>GRID UP</B></h2>";
               gridStateLED.setLedColor(steelseries.LedColor.GREEN_LED);
           }
           if (response.egdata.grid_status == "") {SystemIsIslandedActive
               gridStateLED.setLedOnOff(true);
-              document.getElementById("GridText").innerHTML = "<h1><B>GRID DOWN</B></h1>";
+              document.getElementById("GridText").innerHTML = "<h2><B>GRID DOWN</B></h2>";
               gridStateLED.setLedColor(steelseries.LedColor.RED_LED);
           }
           if (response.egdata.grid_status == "SystemTransitionToGrid") {
               gridStateLED.setLedOnOff(true);
-              document.getElementById("GridText").innerHTML = "<h1><B>GRID SYNCRONIZING</B></h1>";
+              document.getElementById("GridText").innerHTML = "<h2><B>GRID SYNCRONIZING</B></h2>";
               gridStateLED.setLedColor(steelseries.LedColor.YELLOW_LED);
           }
 
           if (response.battstate == "STANDBY") {
               battStateLED.setLedOnOff(false);
-              document.getElementById("BattText").innerHTML = "<h1><B>BATTERY STANDBY</B></h1>";
+              document.getElementById("BattText").innerHTML = "<h2><B>BATTERY STANDBY</B></h2>";
               battStateLED.setLedColor(steelseries.LedColor.GREEN_LED);
           }
 
           if (response.battstate == "CHARGE") {
               battStateLED.setLedOnOff(true);
-              document.getElementById("BattText").innerHTML = "<h1><B>BATTERY CHARGE</B></h1>";
+              document.getElementById("BattText").innerHTML = "<h2><B>BATTERY CHARGE</B></h2>";
               battStateLED.setLedColor(steelseries.LedColor.GREEN_LED);
           }
 
           if (response.battstate == "DISCHARGE") {
               battStateLED.setLedOnOff(true);
-              document.getElementById("BattText").innerHTML = "<h1><B>BATTERY DISCHARGE</B></h1>";
+              document.getElementById("BattText").innerHTML = "<h2><B>BATTERY DISCHARGE</B></h2>";
               battStateLED.setLedColor(steelseries.LedColor.RED_LED);
           }
 
           if (response.battstate == "VOLUNTARY_DISCHARGE") {
               battStateLED.setLedOnOff(false);
-              document.getElementById("BattText").innerHTML = "<h1><B>BATTERY VOLUNTARY DISCHARGE</B></h1>";
+              document.getElementById("BattText").innerHTML = "<h2><B>BATTERY VOLUNTARY DISCHARGE</B></h2>";
               battStateLED.setLedColor(steelseries.LedColor.YELLOW_LED);
           }
 
           if (response.egdata.running == true) {
               pwStateLED.setLedOnOff(true);
-              document.getElementById("PWText").innerHTML = "<h1><B>POWERWALL RUNNING</B></h1>";
+              document.getElementById("PWText").innerHTML = "<h2><B>POWERWALL RUNNING</B></h2>";
               pwStateLED.setLedColor(steelseries.LedColor.GREEN_LED);
           }
 
           if (response.egdata.running == false) {
               pwStateLED.setLedOnOff(true);
-              document.getElementById("PWText").innerHTML = "<h1><B>POWERWALL STOPPED</B></h1>";
+              document.getElementById("PWText").innerHTML = "<h2><B>POWERWALL STOPPED</B></h2>";
               pwStateLED.setLedColor(steelseries.LedColor.RED_LED);
           }
           
