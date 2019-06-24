@@ -4,6 +4,7 @@ After=network.target
 Wants=network.target
 
 [Service]
+Environment=GOTRACEBACK=crash
 Type=simple
 GuessMainPID=true
 ExecStart=/usr/local/bin/solarmon
