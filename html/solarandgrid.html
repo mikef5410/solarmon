@@ -311,7 +311,7 @@
               document.getElementById("GridText").innerHTML = "<h2><B>GRID UP</B></h2>";
               gridStateLED.setLedColor(steelseries.LedColor.GREEN_LED);
           }
-          if (response.egdata.grid_status == "") {SystemIsIslandedActive
+          if (response.egdata.grid_status == "SystemIsIslandedActive") {
               gridStateLED.setLedOnOff(true);
               document.getElementById("GridText").innerHTML = "<h2><B>GRID DOWN</B></h2>";
               gridStateLED.setLedColor(steelseries.LedColor.RED_LED);
