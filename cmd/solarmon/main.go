@@ -105,13 +105,13 @@ func main() {
 
 	//Make our inter-thread comm channels
 	var gridData solarmon.DataResponse
-	gridChan := make(chan solarmon.DataResponse)
+	gridChan := make(chan solarmon.DataResponse,1)
 
 	var inverterData solarmon.PerfData
-	inverterChan := make(chan solarmon.PerfData)
+	inverterChan := make(chan solarmon.PerfData,1)
 
 	var egData solarmon.EGPerfData
-	egChan := make(chan solarmon.EGPerfData)
+	egChan := make(chan solarmon.EGPerfData,1)
 
 	FileWriterLiveDataChan := make(chan LiveData, 20)
 

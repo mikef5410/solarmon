@@ -341,7 +341,7 @@
           }
 
           if (response.battstate == "VOLUNTARY_DISCHARGE") {
-              battStateLED.setLedOnOff(false);
+              battStateLED.setLedOnOff(true);
               document.getElementById("BattText").innerHTML = "<h2><B>BATTERY VOLUNTARY DISCHARGE</B></h2>";
               battStateLED.setLedColor(steelseries.LedColor.YELLOW_LED);
           }
