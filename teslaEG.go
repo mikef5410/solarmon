@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"os"
 )
 
 type TeslaEnergyGateway struct {
@@ -231,7 +232,7 @@ func (EG *TeslaEnergyGateway) getMeters(data *EGPerfData) {
 
 //Get a complete set of data, stuff it into a struct, push the struct onto the data channel
 //and return.
-func (EG *TeslaEnergyGateway) PollData(EGChannel chan EGPerfData, stopChan chan int) {
+func (EG *TeslaEnergyGateway) PollData(interval_ms int, EGChannel chan EGPerfData, stopChan chan int) {
 	var data EGPerfData
 
 	resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
@@ -243,10 +244,13 @@ func (EG *TeslaEnergyGateway) PollData(EGChannel chan EGPerfData, stopChan chan 
 			EG.getGridStatus(&data)
 			EG.getMeters(&data)
 			EGChannel <- data
-
+		case <-time.After(100 * time.Second):
+			fmt.Printf("Reading from Energy Gateway timeout!\n")
+			os.Exit(1)
 		case <-stopChan:
 			return
 		}
+		time.Sleep(time.Duration(interval_ms) * time.Millisecond)
 	}
 
 }

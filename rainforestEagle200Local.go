@@ -191,7 +191,7 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 }
 
 // Goroutine to read one set of data, push it on a channel, and return
-func (self *RainforestEagle200Local) PollData(gridChannel chan DataResponse, stopChan chan int) {
+func (self *RainforestEagle200Local) PollData(interval_ms int, gridChannel chan DataResponse, stopChan chan int) {
 	for {
 		select {
 		default:
@@ -200,5 +200,6 @@ func (self *RainforestEagle200Local) PollData(gridChannel chan DataResponse, sto
 		case <-stopChan:
 			return
 		}
+		time.Sleep(time.Duration(interval_ms) * time.Millisecond)
 	}
 }

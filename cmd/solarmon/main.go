@@ -90,7 +90,7 @@ func main() {
 	mqtts.ClientHandle = nil
 
 	//How long to sleep between polls?
-	pollms := time.Duration(configReader.GetInt("solarmon.pollInterval")) * time.Millisecond
+	pollms := configReader.GetInt("solarmon.pollInterval")
 
 	//Where does the live data file live?
 	liveFilename := configReader.GetString("solarmon.liveDataFile")
@@ -105,13 +105,13 @@ func main() {
 
 	//Make our inter-thread comm channels
 	var gridData solarmon.DataResponse
-	gridChan := make(chan solarmon.DataResponse,1)
+	gridChan := make(chan solarmon.DataResponse,10)
 
 	var inverterData solarmon.PerfData
-	inverterChan := make(chan solarmon.PerfData,1)
+	inverterChan := make(chan solarmon.PerfData,10)
 
 	var egData solarmon.EGPerfData
-	egChan := make(chan solarmon.EGPerfData,1)
+	egChan := make(chan solarmon.EGPerfData,10)
 
 	FileWriterLiveDataChan := make(chan LiveData, 20)
 
@@ -133,9 +133,9 @@ func main() {
 	retryCount := 5
         
 RETRY:
-	go inv.PollData(inverterChan, stopInv)
-	go meter.PollData(gridChan, stopMeter)
-	go eg.PollData(egChan, stopEG)
+	go inv.PollData(pollms, inverterChan, stopInv)
+	go meter.PollData(pollms, gridChan, stopMeter)
+	go eg.PollData(pollms, egChan, stopEG)
 
 	for {
 		gotGrid := false
@@ -209,7 +209,6 @@ RETRY:
 			stopEG <- 1
 			break
 		}
-		time.Sleep(pollms)
 	}
 	time.Sleep(10*time.Second)
 	retryCount = retryCount - 1
@@ -251,7 +250,7 @@ func openDB(filename string) *sql.DB {
 	res := database.QueryRow("PRAGMA user_version;")
 	err := res.Scan(&vers)
 	if err != nil {
-		fmt.Printf("schema get failed\n")
+		_=fmt.Errorf("schema get failed: %s\n", err)
 	}
 	if vers == 0 { // Augment table, increase schema version to 1
 		fmt.Printf("Upgrade database to version 1\n")
@@ -351,7 +350,7 @@ func DBWriter(db *sql.DB, dataChan chan LiveData) {
                                                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                                                ?, ?, ?, ?, ? )`)
 	if err != nil {
-		fmt.Printf("Prepare error: %s", err)
+		_ = fmt.Errorf("Prepare error: %s", err)
 	}
 
 	for {
@@ -360,8 +359,12 @@ func DBWriter(db *sql.DB, dataChan chan LiveData) {
 		timeLastContact, _ := currentData.GridData.LastContact.MarshalText()
 		timeStamp, _ := currentData.TimeStamp.MarshalText()
 		gridLastChange, _ := currentData.EGData.Grid_last_change.MarshalText()
+		err := db.Ping()
+		if (err != nil) {
+			_ = fmt.Errorf("Database ping response: %s\n", err)
+		}
 
-		statement.Exec(timeLastContact,
+		_, err = statement.Exec(timeLastContact,
 			currentData.GridData.InstantaneousDemand, currentData.GridData.KWhFromGrid,
 			currentData.GridData.KWhToGrid, currentData.InverterData.AC_Power, currentData.InverterData.AC_Current,
 			currentData.InverterData.AC_Voltage, currentData.InverterData.AC_VA, currentData.InverterData.AC_VAR,
@@ -389,6 +392,10 @@ func DBWriter(db *sql.DB, dataChan chan LiveData) {
 			currentData.EGData.Battery_instant_power, currentData.EGData.Battery_instant_apparent_power,
 			currentData.EGData.Battery_instant_reactive_power, currentData.EGData.Battery_frequency,
 			currentData.EGData.Battery_instant_average_voltage, currentData.EGData.Battery_instant_total_current)
+
+		if err != nil {
+			_ = fmt.Errorf("Database write error: %s\n",err)
+		}
 	}
 
 }
@@ -414,7 +421,7 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 		results.SolarKWh = results.SolarKWh / 1000.0
 		results.HouseUsage = results.HouseUsage / 1000.0
 	} else {
-		fmt.Printf("First restore error: %s\n", err)
+		_ = fmt.Errorf("First restore error: %s\n", err)
 		//No entry yet for today, so take the last available
 		res = db.QueryRow(`SELECT meter_KWHFromGrid,meter_KWHToGrid,inv_AC_Energy ,eg_house_energy_imported FROM solarPerf 
                            ORDER BY timestamp DESC LIMIT 1`)
@@ -434,7 +441,7 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 		LastGridChange.UnmarshalText([]byte(lastChange))
 		return (results)
 	} else {
-		fmt.Printf("Force last grid change, %s\n", err)
+		_ = fmt.Errorf("Force last grid change, %s\n", err)
 		LastGridChange = time.Now()
 		LastGridState = true
 	}
@@ -462,7 +469,7 @@ func (server *MQTTServer) connect() {
 	for !ConnToken.WaitTimeout(5 * time.Second) {
 	}
 	if err := ConnToken.Error(); err != nil {
-		fmt.Printf("MQTT Connection problem: %s\n", err)
+		_ = fmt.Errorf("MQTT Connection problem: %s\n", err)
 		//log.Fatal(err)
 	}
 }
@@ -471,7 +478,7 @@ func (server *MQTTServer) publish(topic string, value string, retain bool, synch
 	fullTopic := server.Prefix + "/" + topic
 	token := server.ClientHandle.Publish(fullTopic, 0, retain, value)
 	if err := token.Error(); err != nil {
-		fmt.Printf("Publish error: %s\n", err)
+		_ = fmt.Errorf("Publish error: %s\n", err)
 		return (err)
 	}
 

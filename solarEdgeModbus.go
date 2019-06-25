@@ -268,7 +268,7 @@ func (inverter *SolarEdgeModbus) AllRegDump() {
 
 //Get a complete set of data, stuff it into a struct, push the struct onto the data channel
 //and return.
-func (inverter *SolarEdgeModbus) PollData(inverterChannel chan PerfData, stopChan chan int) {
+func (inverter *SolarEdgeModbus) PollData(interval_ms int, inverterChannel chan PerfData, stopChan chan int) {
 	var data PerfData
 
 	for {
@@ -295,6 +295,7 @@ func (inverter *SolarEdgeModbus) PollData(inverterChannel chan PerfData, stopCha
 		case <-stopChan:
 			return
 		}
+		time.Sleep(time.Duration(interval_ms) * time.Millisecond)
 	}
 
 }

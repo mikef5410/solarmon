@@ -35,7 +35,7 @@ func main() {
 	eg.User = configReader.GetString("powerwall.user")
 	fmt.Printf("SolarW,HouseW,BattW,GridW,BattCharge,SolarF,HouseF,BattF,GridF\n")
 	stopPW := make(chan int, 1)
-	go eg.PollData(EGChan, stopPW)
+	go eg.PollData(1000, EGChan, stopPW)
 	for {
 		gotEG := false
 		timeout := false
