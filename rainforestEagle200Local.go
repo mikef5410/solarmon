@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strconv"
 	"time"
+	"os"
 )
 
 type RainforestEagle200Local struct {
@@ -124,6 +125,7 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 	var devDetails DeviceDetailsDevice
 
 	retry := 10
+	ok := false
 	retryTime := time.Duration(10 * time.Second)
 	resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	hardwareAddr := self.MeterHardwareAddr
@@ -165,6 +167,7 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 		}
 
 		retry = 0 // We got here, so no errors
+		ok = true
 		LastContactStr = devDetails.Details.LastContact
 		//fmt.Printf("Last Contact: %s\n", LastContactStr)
 
@@ -175,6 +178,11 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 		}
 	}
 
+	if ! ok {
+		fmt.Printf("Too many Rainforest eagle errors. Exiting.\n")
+		os.Exit(1)
+	}
+	
 	InstantaneousDemandStr := devDetails.Components[0].Variables[indexOfName["zigbee:InstantaneousDemand"]].Value
 	KWhFromGridStr := devDetails.Components[0].Variables[indexOfName["zigbee:CurrentSummationDelivered"]].Value
 	KWhToGridStr := devDetails.Components[0].Variables[indexOfName["zigbee:CurrentSummationReceived"]].Value

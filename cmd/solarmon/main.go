@@ -9,10 +9,11 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
-	"time"
 	"os"
+	"time"
 	//"github.com/davecgh/go-spew/spew"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"sync/atomic"
 	//"errors"
 )
 
@@ -48,6 +49,7 @@ type MQTTServer struct {
 
 var LastGridState bool
 var LastGridChange time.Time
+var updateCounter uint64
 
 func main() {
 	//Find config file and read it
@@ -105,13 +107,13 @@ func main() {
 
 	//Make our inter-thread comm channels
 	var gridData solarmon.DataResponse
-	gridChan := make(chan solarmon.DataResponse,10)
+	gridChan := make(chan solarmon.DataResponse, 10)
 
 	var inverterData solarmon.PerfData
-	inverterChan := make(chan solarmon.PerfData,10)
+	inverterChan := make(chan solarmon.PerfData, 10)
 
 	var egData solarmon.EGPerfData
-	egChan := make(chan solarmon.EGPerfData,10)
+	egChan := make(chan solarmon.EGPerfData, 10)
 
 	FileWriterLiveDataChan := make(chan LiveData, 20)
 
@@ -120,6 +122,9 @@ func main() {
 	MQTTChan := make(chan LiveData, 20)
 
 	var dataOut LiveData
+
+	updateCounter = 0
+	go Watchdog()
 
 	//Launch our live data file writer, and database logger threads
 	go FileWriter(liveFilename, FileWriterLiveDataChan)
@@ -131,7 +136,7 @@ func main() {
 	stopMeter := make(chan int, 1)
 	stopEG := make(chan int, 1)
 	retryCount := 5
-        
+
 RETRY:
 	go inv.PollData(pollms, inverterChan, stopInv)
 	go meter.PollData(pollms, gridChan, stopMeter)
@@ -210,13 +215,25 @@ RETRY:
 			break
 		}
 	}
-	time.Sleep(10*time.Second)
+	time.Sleep(10 * time.Second)
 	retryCount = retryCount - 1
-	fmt.Printf("Reading failure. Retry count: %d\n",retryCount)
-	if (retryCount > 0) {
+	fmt.Printf("Reading failure. Retry count: %d\n", retryCount)
+	if retryCount > 0 {
 		goto RETRY
 	} else {
 		os.Exit(1)
+	}
+}
+
+func Watchdog() {
+	var lastCount uint64
+	for {
+		lastCount = updateCounter
+		time.Sleep(120 * time.Second)
+		if lastCount == updateCounter {
+			fmt.Printf("Watchdog timeout\n")
+			os.Exit(1)
+		}
 	}
 }
 
@@ -232,6 +249,7 @@ func FileWriter(filename string, dataChan chan LiveData) {
 
 			ioutil.WriteFile(filename, serialized, 0644)
 		}
+		atomic.AddUint64(&updateCounter, 1)
 	}
 
 }
@@ -250,7 +268,7 @@ func openDB(filename string) *sql.DB {
 	res := database.QueryRow("PRAGMA user_version;")
 	err := res.Scan(&vers)
 	if err != nil {
-		_=fmt.Errorf("schema get failed: %s\n", err)
+		_ = fmt.Errorf("schema get failed: %s\n", err)
 	}
 	if vers == 0 { // Augment table, increase schema version to 1
 		fmt.Printf("Upgrade database to version 1\n")
@@ -360,7 +378,7 @@ func DBWriter(db *sql.DB, dataChan chan LiveData) {
 		timeStamp, _ := currentData.TimeStamp.MarshalText()
 		gridLastChange, _ := currentData.EGData.Grid_last_change.MarshalText()
 		err := db.Ping()
-		if (err != nil) {
+		if err != nil {
 			_ = fmt.Errorf("Database ping response: %s\n", err)
 		}
 
@@ -394,7 +412,7 @@ func DBWriter(db *sql.DB, dataChan chan LiveData) {
 			currentData.EGData.Battery_instant_average_voltage, currentData.EGData.Battery_instant_total_current)
 
 		if err != nil {
-			_ = fmt.Errorf("Database write error: %s\n",err)
+			_ = fmt.Errorf("Database write error: %s\n", err)
 		}
 	}
 
