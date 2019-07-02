@@ -1,0 +1,37 @@
+#!/bin/bash
+#
+
+
+REMOTE=$1
+
+
+verifySum () {
+         local localfile=$1
+         local remotefile=$2
+
+         local rsum=$(ssh root@${REMOTE} sha1sum ${remotefile} | cut -d ' ' -f 1)
+         local lsum=$(sha1sum ${localfile} | cut -d ' ' -f 1)
+
+         if  [ "${lsum}" == "${rsum}" ]; then
+             return 0
+         else
+             return 1
+         fi
+}
+
+files=( etc/solarmon.service html/solarandgrid.html html/index.html html/rawData.cgi html/steelseries-min.js html/tween-min.js  html/yaml.js solarmon )
+remlocs=( /usr/local/lib/systemd/system/solarmon.service /home/httpd/html/solar/solarandgrid.html /home/httpd/html/solar/index.html /home/httpd/html/solar/rawData.cgi /home/httpd/html/solar/steelseries-min.js /home/httpd/html/solar/tween-min.js  /home/httpd/html/solar/yaml.js /usr/local/bin/solarmon )
+
+
+for ix in $( seq 1 ${#files[*]} )
+do
+    i=$(($ix-1))
+    echo ${files[$i]} ${remlocs[$i]}
+
+    if verifySum  ${files[$i]} ${remlocs[$i]} ; then
+        echo ${files[$i]} ok
+    else
+        echo ${files[$i]} needs install
+    fi
+       
+done
