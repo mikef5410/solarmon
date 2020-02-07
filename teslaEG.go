@@ -120,7 +120,7 @@ func (EG *TeslaEnergyGateway) getSiteMaster(data *EGPerfData) {
 
 	data.Uptime, err = strconv.Atoi(strings.TrimRight(d.Uptime, "s,"))
 	if err != nil {
-		fmt.Printf("Uptime err\n")
+		//fmt.Printf("Uptime err\n")
 		data.Uptime=0
 	}
 	data.Running = d.Running
