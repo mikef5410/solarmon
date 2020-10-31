@@ -281,7 +281,7 @@
       
       while (1) {
           if (loop) {
-              xhr.open("GET","http://mrf-gw.mrf.sonoma.ca.us/solar/solarmonLiveData", true);
+              xhr.open("GET","https://mrf-gw.mrf.sonoma.ca.us/solar/solarmonLiveData", true);
               xhr.send();
               xhr.addEventListener("readystatechange", processRequest, false);
           }
