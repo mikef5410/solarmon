@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"time"
+	"encoding/json"
 	//"github.com/davecgh/go-spew/spew"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"sync/atomic"
@@ -463,7 +464,7 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 		LastGridChange = time.Now()
 		LastGridState = true
 	}
-
+        fmt.Printf("DB SOD done.\n")
 	return (results)
 
 }
@@ -546,6 +547,13 @@ func (server *MQTTServer) MqttPublisher(dataChan chan LiveData) {
 			_ = fmt.Errorf("YAML Marshalling error: %s\n", err)
 		} else {
 			_ = server.publish("solarmonData", string(serialized), retain, sync)
+		}
+
+		serialized, err = json.Marshal(currentData)
+		if err != nil {
+			_ = fmt.Errorf("Json Marshalling error: %s\n", err)
+		} else {
+			_ = server.publish("solarmonDatajson", string(serialized), retain, sync)
 		}
 	}
 }
