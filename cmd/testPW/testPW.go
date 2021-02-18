@@ -11,9 +11,7 @@ import (
 	//"gopkg.in/yaml.v2"
 	//"io/ioutil"
 	"time"
-	"net/url"
 	"net/http"
-	"net/https"
 )
 
 func main() {
@@ -39,10 +37,7 @@ func main() {
 	eg.AuthUser = configReader.GetString("powerwall.authuser")
 	eg.AuthPass = configReader.GetString("powerwall.authpass")
 	eg.AuthEmail = configReader.GetString("powerwall.authemail")
-	
-	
-	
-
+	eg.AuthCookies = make([]*http.Cookie,0)
 	
 	fmt.Printf("SolarW,HouseW,BattW,GridW,BattCharge,SolarF,HouseF,BattF,GridF\n")
 	stopPW := make(chan int, 1)

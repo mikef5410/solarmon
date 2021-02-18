@@ -16,6 +16,7 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"sync/atomic"
 	//"errors"
+	"net/http"
 )
 
 type LiveData struct {
@@ -84,7 +85,11 @@ func main() {
 	eg.Host = configReader.GetString("powerwall.host")
 	eg.Sn = configReader.GetString("powerwall.sn")
 	eg.User = configReader.GetString("powerwall.user")
-
+	eg.AuthUser = configReader.GetString("powerwall.authuser")
+	eg.AuthPass = configReader.GetString("powerwall.authpass")
+	eg.AuthEmail = configReader.GetString("powerwall.authemail")
+	eg.AuthCookies = make([]*http.Cookie,0)
+	
 	mqtts.Url = configReader.GetString("mqtt.url")
 	mqtts.ClientID = configReader.GetString("mqtt.clientiD")
 	mqtts.User = configReader.GetString("mqtt.user")
@@ -140,11 +145,12 @@ func main() {
 
 RETRY:
 	go inv.PollData(pollms, inverterChan, stopInv)
-	go meter.PollData(pollms, gridChan, stopMeter)
+	//go meter.PollData(pollms, gridChan, stopMeter)
 	go eg.PollData(pollms, egChan, stopEG)
 
 	for {
-		gotGrid := false
+		//gotGrid := false
+		gotGrid := true //turn off rainforest
 		gotInv := false
 		gotEG := false
 		timeout := false
@@ -209,6 +215,7 @@ RETRY:
 			//fmt.Printf("Grid Demand: %.6g W, Solar Generation: %.6g W, House Demand: %.6gW\n",
 			//	gridData.InstantaneousDemand, inverterData.AC_Power, dataOut.HousePowerUsage)
 		} else {
+			fmt.Printf("Data writer timeout.\n")
 			//timed out. kill our goroutines
 			stopInv <- 1
 			stopMeter <- 1
