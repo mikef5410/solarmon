@@ -7,14 +7,17 @@ package solarmon
 */
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/xml"
 	"fmt"
+	"golang.org/x/net/html/charset"
 	"gopkg.in/resty.v1"
+	"os"
 	"regexp"
 	"strconv"
 	"time"
-	"os"
+	"strings"
 )
 
 type RainforestEagle200Local struct {
@@ -104,13 +107,18 @@ func (self *RainforestEagle200Local) Setup() {
 	if err != nil {
 		fmt.Printf("%s\n", fmt.Errorf("%s", err))
 	}
-	//fmt.Printf("%s", resp.Body())
+	fmt.Printf("%s", resp.Body())
 
-	if err := xml.Unmarshal(resp.Body(), &deviceList); err != nil {
-		fmt.Printf("Client unmarshal failed: " + err.Error())
+	//convert response to utf-8 string
+	//response, err := ioutil.ReadAll(charmap.ISO8859_1.NewDecoder().Reader(bytes.NewReader(resp.Body())))
+	decoder := xml.NewDecoder(bytes.NewReader(resp.Body()))
+	decoder.CharsetReader = charset.NewReaderLabel
+	if err = decoder.Decode(&deviceList); err != nil {
+		//if err = xml.Unmarshal(response, &deviceList); err != nil {
+		fmt.Printf("rainforest Setup Client unmarshal failed: " + err.Error())
 	} else {
-		//fmt.Printf("%v\n", deviceList)
-		//fmt.Printf("%s\n", deviceList.Devices[0].HardwareAddress)
+		//	//fmt.Printf("%v\n", deviceList)
+		//	//fmt.Printf("%s\n", deviceList.Devices[0].HardwareAddress)
 	}
 
 	for ix, _ := range deviceList.Devices {
@@ -154,13 +162,18 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 			time.Sleep(retryTime)
 			continue
 		}
+		//convert response to utf-8 string
+		//response, err := ioutil.ReadAll(charmap.ISO8859_1.NewDecoder().Reader(bytes.NewReader(resp.Body())))
 
 		re := regexp.MustCompile("&")
 		fixedResp := re.ReplaceAllString(string(resp.Body()), " and ")
-		//fmt.Printf("%s\n", fixedResp)
+		fmt.Printf("%s\n", fixedResp)
 
-		if err := xml.Unmarshal([]byte(fixedResp), &devDetails); err != nil {
-			fmt.Printf("Client unmarshal failed: " + err.Error())
+		decoder := xml.NewDecoder(strings.NewReader(fixedResp))
+		decoder.CharsetReader = charset.NewReaderLabel
+		if err := decoder.Decode(&devDetails); err != nil {
+			//if err := xml.Unmarshal([]byte(fixedResp), &devDetails); err != nil {
+			fmt.Printf("rainforest getData Client unmarshal failed: " + err.Error())
 			retry = retry - 1
 			time.Sleep(retryTime)
 			continue
@@ -178,11 +191,11 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 		}
 	}
 
-	if ! ok {
+	if !ok {
 		fmt.Printf("Too many Rainforest eagle errors. Exiting.\n")
 		os.Exit(1)
 	}
-	
+
 	InstantaneousDemandStr := devDetails.Components[0].Variables[indexOfName["zigbee:InstantaneousDemand"]].Value
 	KWhFromGridStr := devDetails.Components[0].Variables[indexOfName["zigbee:CurrentSummationDelivered"]].Value
 	KWhToGridStr := devDetails.Components[0].Variables[indexOfName["zigbee:CurrentSummationReceived"]].Value

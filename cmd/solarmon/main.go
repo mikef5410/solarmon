@@ -149,8 +149,8 @@ RETRY:
 	go eg.PollData(pollms, egChan, stopEG)
 
 	for {
+		gotGrid := true
 		//gotGrid := false
-		gotGrid := true //turn off rainforest
 		gotInv := false
 		gotEG := false
 		timeout := false
