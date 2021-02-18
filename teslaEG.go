@@ -16,6 +16,10 @@ type TeslaEnergyGateway struct {
 	Host string
 	Sn   string
 	User string
+	AuthUser string
+	AuthPass string
+	AuthEmail string
+	AuthExpires time.Time
 }
 
 //Batt <0 ... charging
@@ -73,6 +77,30 @@ type EGPerfData struct {
 	Battery_instant_average_voltage float64
 	Battery_instant_total_current   float64
 }
+
+func (EG *TeslaEnergyGateway) authorize() {
+	if time.Now() >= EG.AuthExpires {
+		//authData:= url.Values {
+		//	"username": { EG.AuthUser },
+		//		"password": { EG.AuthPass },
+		//		"email": { EG.AuthEmail },
+		//		"force_sm_off": { "false" },
+		//	}
+		client := resty.New()
+		r :=  client.SetFormData(map[string]string{
+				"username":  EG.AuthUser ,
+				"password":  EG.AuthPass ,
+				"email":  EG.AuthEmail ,
+			"force_sm_off":  "false" ,
+		}).
+			Post("https://" + eg.Host + "/api/login/Basic")
+		cookies:=r.Cookies()
+
+		EG.AuthExpires = time.Now().Add(time.Hour * 2)
+	}
+	return
+}
+
 
 func (EG *TeslaEnergyGateway) getSOE(data *EGPerfData) {
 	type SOEdata struct {
@@ -239,6 +267,7 @@ func (EG *TeslaEnergyGateway) PollData(interval_ms int, EGChannel chan EGPerfDat
 	for {
 		select {
 		default:
+			EG.authorize()
 			EG.getSOE(&data)
 			EG.getSiteMaster(&data)
 			EG.getGridStatus(&data)

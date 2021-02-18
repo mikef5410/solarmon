@@ -11,6 +11,9 @@ import (
 	//"gopkg.in/yaml.v2"
 	//"io/ioutil"
 	"time"
+	"net/url"
+	"net/http"
+	"net/https"
 )
 
 func main() {
@@ -33,6 +36,14 @@ func main() {
 	eg.Host = configReader.GetString("powerwall.host")
 	eg.Sn = configReader.GetString("powerwall.sn")
 	eg.User = configReader.GetString("powerwall.user")
+	eg.AuthUser = configReader.GetString("powerwall.authuser")
+	eg.AuthPass = configReader.GetString("powerwall.authpass")
+	eg.AuthEmail = configReader.GetString("powerwall.authemail")
+	
+	
+	
+
+	
 	fmt.Printf("SolarW,HouseW,BattW,GridW,BattCharge,SolarF,HouseF,BattF,GridF\n")
 	stopPW := make(chan int, 1)
 	go eg.PollData(1000, EGChan, stopPW)
