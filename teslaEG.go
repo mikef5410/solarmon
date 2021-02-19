@@ -22,6 +22,7 @@ type TeslaEnergyGateway struct {
 	AuthEmail   string
 	AuthExpires time.Time
 	AuthCookies []*http.Cookie
+	WebClient   *resty.Client
 }
 
 //Batt <0 ... charging
@@ -82,9 +83,9 @@ type EGPerfData struct {
 
 func (EG *TeslaEnergyGateway) authorize() {
 	if time.Now().After(EG.AuthExpires) {
-		client := resty.New()
-		client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-		r, err := client.SetFormData(map[string]string{
+		EG.WebClient = resty.New()
+		EG.WebClient.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+		r, err := EG.WebClient.SetFormData(map[string]string{
 			"username":     EG.AuthUser,
 			"password":     EG.AuthPass,
 			"email":        EG.AuthEmail,
@@ -96,7 +97,7 @@ func (EG *TeslaEnergyGateway) authorize() {
 		} else {
 			fmt.Println(fmt.Errorf("Authorization complete.\n"))
 			EG.AuthCookies = r.Cookies()
-			EG.AuthExpires = time.Now().Add(time.Hour * 2)
+			EG.AuthExpires = time.Now().Add(time.Minute * 5)
 		}
 	}
 	return
@@ -110,10 +111,8 @@ func (EG *TeslaEnergyGateway) getSOE(data *EGPerfData) {
 	var resp *resty.Response
 	var err error
 	url := "https://" + EG.Host + "/api/system_status/soe"
-	client := resty.New()
-	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	for {
-		resp, err = client.SetCookies(EG.AuthCookies).R().Get(url)
+		resp, err = EG.WebClient.SetCookies(EG.AuthCookies).R().Get(url)
 		if err == nil {
 			break
 		} else {
@@ -136,10 +135,8 @@ func (EG *TeslaEnergyGateway) getSiteMaster(data *EGPerfData) {
 	var err error
 	var d SiteMasterData
 	url := "https://" + EG.Host + "/api/sitemaster"
-	client := resty.New()
-	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	for {
-		resp, err = client.SetCookies(EG.AuthCookies).R().Get(url)
+		resp, err = EG.WebClient.SetCookies(EG.AuthCookies).R().Get(url)
 		if err == nil {
 			break
 		} else {
@@ -169,10 +166,8 @@ func (EG *TeslaEnergyGateway) getGridStatus(data *EGPerfData) {
 	var resp *resty.Response
 	var err error
 	url := "https://" + EG.Host + "/api/system_status/grid_status"
-	client := resty.New()
-	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	for {
-		resp, err = client.SetCookies(EG.AuthCookies).R().Get(url)
+		resp, err = EG.WebClient.SetCookies(EG.AuthCookies).R().Get(url)
 		if err == nil {
 			break
 		} else {
@@ -216,10 +211,8 @@ func (EG *TeslaEnergyGateway) getMeters(data *EGPerfData) {
 	var resp *resty.Response
 	var err error
 	url := "https://" + EG.Host + "/api/meters/aggregates"
-	client := resty.New()
-	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	for {
-		resp, err = client.SetCookies(EG.AuthCookies).R().Get(url)
+		resp, err = EG.WebClient.SetCookies(EG.AuthCookies).R().Get(url)
 		if err == nil {
 			break
 		} else {
