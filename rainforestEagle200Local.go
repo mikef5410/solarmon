@@ -16,8 +16,8 @@ import (
 	"os"
 	"regexp"
 	"strconv"
-	"time"
 	"strings"
+	"time"
 )
 
 type RainforestEagle200Local struct {
@@ -97,9 +97,9 @@ func (self *RainforestEagle200Local) Setup() {
 	var deviceList DeviceList
 
 	cmd := fmt.Sprintf("<Command><Name>device_list</Name></Command>")
-	resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-
-	resp, err := resty.R().SetBasicAuth(self.User, self.Pass).
+	client := resty.New()
+	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	resp, err := client.R().SetBasicAuth(self.User, self.Pass).
 		SetBody(cmd).
 		SetResult(AuthSuccess{}).
 		Post(fmt.Sprintf("https://%s/cgi-bin/post_manager", self.Host))
@@ -107,7 +107,8 @@ func (self *RainforestEagle200Local) Setup() {
 	if err != nil {
 		fmt.Printf("%s\n", fmt.Errorf("%s", err))
 	}
-	fmt.Printf("%s", resp.Body())
+
+	//fmt.Printf("%s", resp.Body())
 
 	//convert response to utf-8 string
 	//response, err := ioutil.ReadAll(charmap.ISO8859_1.NewDecoder().Reader(bytes.NewReader(resp.Body())))
@@ -132,10 +133,13 @@ func (self *RainforestEagle200Local) Setup() {
 func (self *RainforestEagle200Local) GetData() DataResponse {
 	var devDetails DeviceDetailsDevice
 
+	client := resty.New()
+	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+
 	retry := 10
 	ok := false
 	retryTime := time.Duration(10 * time.Second)
-	resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	//resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	hardwareAddr := self.MeterHardwareAddr
 
 	cmd := fmt.Sprintf(`<Command>
@@ -151,7 +155,7 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 	indexOfName := make(map[string]int)
 	var LastContactStr string
 	for retry > 0 {
-		resp, err := resty.R().SetBasicAuth(self.User, self.Pass).
+		resp, err := client.R().SetBasicAuth(self.User, self.Pass).
 			SetBody(cmd).
 			SetResult(AuthSuccess{}).
 			Post(fmt.Sprintf("https://%s/cgi-bin/post_manager", self.Host))
@@ -165,9 +169,14 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 		//convert response to utf-8 string
 		//response, err := ioutil.ReadAll(charmap.ISO8859_1.NewDecoder().Reader(bytes.NewReader(resp.Body())))
 
+		//fmt.Printf("%s\n", string(resp.Body()))
+		//fmt.Printf("----------------------------\n")
+
 		re := regexp.MustCompile("&")
 		fixedResp := re.ReplaceAllString(string(resp.Body()), " and ")
-		fmt.Printf("%s\n", fixedResp)
+
+		//fmt.Printf("%s\n", fixedResp)
+		//fmt.Printf("----------------------------\n")
 
 		decoder := xml.NewDecoder(strings.NewReader(fixedResp))
 		decoder.CharsetReader = charset.NewReaderLabel

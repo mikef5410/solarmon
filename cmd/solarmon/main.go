@@ -3,6 +3,7 @@ package main
 import (
 	//"flag"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/mikef5410/solarmon"
@@ -11,7 +12,6 @@ import (
 	"io/ioutil"
 	"os"
 	"time"
-	"encoding/json"
 	//"github.com/davecgh/go-spew/spew"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"sync/atomic"
@@ -88,8 +88,8 @@ func main() {
 	eg.AuthUser = configReader.GetString("powerwall.authuser")
 	eg.AuthPass = configReader.GetString("powerwall.authpass")
 	eg.AuthEmail = configReader.GetString("powerwall.authemail")
-	eg.AuthCookies = make([]*http.Cookie,0)
-	
+	eg.AuthCookies = make([]*http.Cookie, 0)
+
 	mqtts.Url = configReader.GetString("mqtt.url")
 	mqtts.ClientID = configReader.GetString("mqtt.clientiD")
 	mqtts.User = configReader.GetString("mqtt.user")
@@ -145,12 +145,12 @@ func main() {
 
 RETRY:
 	go inv.PollData(pollms, inverterChan, stopInv)
-	//go meter.PollData(pollms, gridChan, stopMeter)
+	go meter.PollData(pollms, gridChan, stopMeter)
 	go eg.PollData(pollms, egChan, stopEG)
 
 	for {
-		gotGrid := true
-		//gotGrid := false
+		//gotGrid := true
+		gotGrid := false
 		gotInv := false
 		gotEG := false
 		timeout := false
@@ -471,7 +471,7 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 		LastGridChange = time.Now()
 		LastGridState = true
 	}
-        fmt.Printf("DB SOD done.\n")
+	fmt.Printf("DB SOD done.\n")
 	return (results)
 
 }
