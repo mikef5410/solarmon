@@ -25,6 +25,7 @@ type RainforestEagle200Local struct {
 	User              string
 	Pass              string
 	MeterHardwareAddr string
+	WebClient         *resty.Client
 }
 
 type Device struct {
@@ -97,9 +98,11 @@ func (self *RainforestEagle200Local) Setup() {
 	var deviceList DeviceList
 
 	cmd := fmt.Sprintf("<Command><Name>device_list</Name></Command>")
-	client := resty.New()
-	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-	resp, err := client.R().SetBasicAuth(self.User, self.Pass).
+	if self.WebClient == nil {
+		self.WebClient = resty.New()
+		self.WebClient.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	}
+	resp, err := self.WebClient.R().SetBasicAuth(self.User, self.Pass).
 		SetBody(cmd).
 		SetResult(AuthSuccess{}).
 		Post(fmt.Sprintf("https://%s/cgi-bin/post_manager", self.Host))
@@ -133,13 +136,13 @@ func (self *RainforestEagle200Local) Setup() {
 func (self *RainforestEagle200Local) GetData() DataResponse {
 	var devDetails DeviceDetailsDevice
 
-	client := resty.New()
-	client.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-
+	if self.WebClient == nil {
+		self.WebClient = resty.New()
+		self.WebClient.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
+	}
 	retry := 10
 	ok := false
 	retryTime := time.Duration(10 * time.Second)
-	//resty.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
 	hardwareAddr := self.MeterHardwareAddr
 
 	cmd := fmt.Sprintf(`<Command>
@@ -155,7 +158,7 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 	indexOfName := make(map[string]int)
 	var LastContactStr string
 	for retry > 0 {
-		resp, err := client.R().SetBasicAuth(self.User, self.Pass).
+		resp, err := self.WebClient.R().SetBasicAuth(self.User, self.Pass).
 			SetBody(cmd).
 			SetResult(AuthSuccess{}).
 			Post(fmt.Sprintf("https://%s/cgi-bin/post_manager", self.Host))
@@ -168,16 +171,8 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 		}
 		//convert response to utf-8 string
 		//response, err := ioutil.ReadAll(charmap.ISO8859_1.NewDecoder().Reader(bytes.NewReader(resp.Body())))
-
-		//fmt.Printf("%s\n", string(resp.Body()))
-		//fmt.Printf("----------------------------\n")
-
 		re := regexp.MustCompile("&")
 		fixedResp := re.ReplaceAllString(string(resp.Body()), " and ")
-
-		//fmt.Printf("%s\n", fixedResp)
-		//fmt.Printf("----------------------------\n")
-
 		decoder := xml.NewDecoder(strings.NewReader(fixedResp))
 		decoder.CharsetReader = charset.NewReaderLabel
 		if err := decoder.Decode(&devDetails); err != nil {
@@ -191,9 +186,7 @@ func (self *RainforestEagle200Local) GetData() DataResponse {
 		retry = 0 // We got here, so no errors
 		ok = true
 		LastContactStr = devDetails.Details.LastContact
-		//fmt.Printf("Last Contact: %s\n", LastContactStr)
 
-		//indexOfName = make(map[string]int)
 		for ix, _ := range devDetails.Components[0].Variables {
 			name := devDetails.Components[0].Variables[ix].Name
 			indexOfName[name] = ix
