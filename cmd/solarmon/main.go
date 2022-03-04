@@ -480,31 +480,35 @@ func initializeSOD(db *sql.DB) EnergyCounters {
 //SELECT * FROM statistics WHERE date(date) BETWEEN date(datetime('now', 'start of day')) AND date(datetime('now')) ORDER BY date LIMIT 1;
 
 func (server *MQTTServer) connect() {
+	//mypid := os.Getpid()
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(server.Url)
 	opts.SetUsername(server.User)
 	opts.SetPassword(server.Pass)
 	opts.SetClientID(server.ClientID)
-	opts.SetKeepAlive(10)
+	opts.SetCleanSession(true)
+	//opts.SetKeepAlive(10)
 	opts.SetMaxReconnectInterval(30)
 	opts.SetWill(server.Prefix+"/"+"solarmon", "OFFLINE", 0, true)
 	opts.SetAutoReconnect(true)
+	opts.SetProtocolVersion(4)
 
 	server.ClientHandle = mqtt.NewClient(opts)
 	ConnToken := server.ClientHandle.Connect()
 	for !ConnToken.WaitTimeout(5 * time.Second) {
 	}
 	if err := ConnToken.Error(); err != nil {
-		_ = fmt.Errorf("MQTT Connection problem: %s\n", err)
+		fmt.Printf("MQTT Connection problem: %s\n", err)
 		//log.Fatal(err)
 	}
 }
 
 func (server *MQTTServer) publish(topic string, value string, retain bool, synchronous bool) error {
 	fullTopic := server.Prefix + "/" + topic
+	//fmt.Printf("publish: %s <- %s\n",fullTopic,value);
 	token := server.ClientHandle.Publish(fullTopic, 0, retain, value)
 	if err := token.Error(); err != nil {
-		_ = fmt.Errorf("Publish error: %s\n", err)
+		//fmt.Printf("Publish error: %s\n", err)
 		return (err)
 	}
 
@@ -516,12 +520,17 @@ func (server *MQTTServer) publish(topic string, value string, retain bool, synch
 			return (fmt.Errorf("Publish timed out"))
 		}
 	}
+
 	return (nil)
 }
 
 func (server *MQTTServer) MqttPublisher(dataChan chan LiveData) {
 	server.connect()
 	for {
+		if ! server.ClientHandle.IsConnectionOpen() {
+			time.Sleep(30*time.Second) //rate limit
+			server.connect()
+		}
 		currentData := <-dataChan
 
 		//timeLastContact, _ := currentData.GridData.LastContact.MarshalText()
