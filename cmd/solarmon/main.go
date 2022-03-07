@@ -191,6 +191,9 @@ RETRY:
 			dataOut.InverterData = inverterData
 			dataOut.GridData = gridData
 			dataOut.InverterEfficiency = 100 * inverterData.AC_Power / inverterData.DC_Power
+			if (dataOut.InverterEfficiency != dataOut.InverterEfficiency) { //NaN
+				dataOut.InverterEfficiency=0
+                        }
 			dataOut.HousePowerUsage = egData.House_instant_power
 			dataOut.TimeStamp = time.Now()
 
@@ -222,6 +225,7 @@ RETRY:
 			stopEG <- 1
 			break
 		}
+		time.Sleep(5*time.Second)
 	}
 	time.Sleep(10 * time.Second)
 	retryCount = retryCount - 1
