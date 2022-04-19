@@ -82,18 +82,26 @@ type EGPerfData struct {
 }
 
 func (EG *TeslaEnergyGateway) authorize() {
+	var authdata string
 	if time.Now().After(EG.AuthExpires) {
+		authdata=`{"username":"`+EG.AuthUser+`","password":"`+EG.AuthPass+`","email":"`+EG.AuthEmail+`","force_sm_off":"false"}`
+		//authdata=`{"username":"`+EG.AuthUser+`","password":"`+EG.AuthPass+`","email":"`+EG.AuthEmail+`"}`
+		fmt.Println(fmt.Errorf("\nAuthdata: %s\n",authdata))
 		EG.WebClient = resty.New()
 		EG.WebClient.SetTLSClientConfig(&tls.Config{InsecureSkipVerify: true})
-		r, err := EG.WebClient.SetFormData(map[string]string{
-			"username":     EG.AuthUser,
-			"password":     EG.AuthPass,
-			"email":        EG.AuthEmail,
-			"force_sm_off": "false",
-		}).R().Post("https://" + EG.Host + "/api/login/Basic")
-
+		r,err := EG.WebClient.R().SetHeader("Content-Type","application/json").
+			SetBody([]byte(authdata)).
+		// r, err := EG.WebClient.SetFormData(map[string]string{
+		//	"username":     EG.AuthUser,
+		//	"password":     EG.AuthPass,
+		//	"email":        EG.AuthEmail,
+		//	"force_sm_off": "false", 
+		//}).
+			Post("https://" + EG.Host + "/api/login/Basic")
+		
 		if err != nil {
 			fmt.Println(fmt.Errorf("Energy gateway authorize failure: %s\n", err))
+			EG.AuthExpires = time.Now().Add(time.Minute * 1) //wait a min, then attempt to re-auth
 		} else {
 			fmt.Println(fmt.Errorf("Authorization complete.\n"))
 			EG.AuthCookies = r.Cookies()
