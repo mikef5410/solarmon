@@ -84,7 +84,7 @@ type EGPerfData struct {
 func (EG *TeslaEnergyGateway) authorize() {
 	var authdata string
 	if time.Now().After(EG.AuthExpires) {
-		authdata=`{"username":"`+EG.AuthUser+`","password":"`+EG.AuthPass+`","email":"`+EG.AuthEmail+`","force_sm_off":"false"}`
+		authdata=`{"username":"`+EG.AuthUser+`","password":"`+EG.AuthPass+`","email":"`+EG.AuthEmail+`","force_sm_off":false}`
 		//authdata=`{"username":"`+EG.AuthUser+`","password":"`+EG.AuthPass+`","email":"`+EG.AuthEmail+`"}`
 		fmt.Println(fmt.Errorf("\nAuthdata: %s\n",authdata))
 		EG.WebClient = resty.New()
@@ -103,9 +103,14 @@ func (EG *TeslaEnergyGateway) authorize() {
 			fmt.Println(fmt.Errorf("Energy gateway authorize failure: %s\n", err))
 			EG.AuthExpires = time.Now().Add(time.Minute * 1) //wait a min, then attempt to re-auth
 		} else {
-			fmt.Println(fmt.Errorf("Authorization complete.\n"))
+			fmt.Println(fmt.Errorf("Energy gateway authorization complete.\n"))
+			fmt.Printf("Body returned: %s\n",string(r.Body()))
 			EG.AuthCookies = r.Cookies()
-			EG.AuthExpires = time.Now().Add(time.Minute * 5)
+			fmt.Printf("Cookies:\n")
+			for _,cook := range r.Cookies() {
+				fmt.Printf("%s\n",cook.Raw)
+			}
+			EG.AuthExpires = time.Now().Add(time.Minute * 60)
 		}
 	}
 	return
@@ -128,6 +133,7 @@ func (EG *TeslaEnergyGateway) getSOE(data *EGPerfData) {
 			time.Sleep(10 * time.Second)
 		}
 	}
+	//fmt.Println(string(resp.Body()))
 	json.Unmarshal([]byte(resp.Body()), &d)
 	data.Batt_percentage = d.Percentage
 	return
